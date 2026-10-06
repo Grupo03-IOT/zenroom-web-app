@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Logo/Isotype">
+<path id="Vector" d="M50 100C77.6142 100 100 77.6142 100 50C100 22.3858 77.6142 0 50 0C22.3858 0 0 22.3858 0 50C0 77.6142 22.3858 100 50 100Z" fill="#0F2A3D"/>
+<path id="Vector_2" d="M50 11C39.6566 11 29.7368 15.1089 22.4228 22.4228C15.1089 29.7368 11 39.6566 11 50C11 60.3434 15.1089 70.2632 22.4228 77.5772C29.7368 84.8911 39.6566 89 50 89V11Z" fill="#F5A623"/>
+<path id="Vector_3" d="M50 11C60.3434 11 70.2632 15.1089 77.5772 22.4228C84.8911 29.7368 89 39.6566 89 50C89 60.3434 84.8911 70.2632 77.5772 77.5772C70.2632 84.8911 60.3434 89 50 89V11Z" fill="#2E86C1"/>
+<path id="Vector_4" opacity="0.35" d="M18 50C23.3333 38 28.6667 38 34 50C39.3333 62 44.6667 62 50 50C55.3333 38 60.6667 38 66 50C71.3333 62 76.6667 62 82 50" stroke="#0F2A3D" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_5" d="M18 50C23.3333 38 28.6667 38 34 50C39.3333 62 44.6667 62 50 50C55.3333 38 60.6667 38 66 50C71.3333 62 76.6667 62 82 50" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</svg>
