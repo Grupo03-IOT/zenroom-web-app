@@ -11,7 +11,7 @@ interface Props {
   demo: boolean
   mode: AuthMode
   onModeChange: (mode: AuthMode) => void
-  onLogin: (email: string, password: string, role: Role) => Promise<void>
+  onLogin: (email: string, password: string) => Promise<void>
   onRegister: (email: string, password: string, name: string, role: Role) => Promise<void>
 }
 
@@ -22,7 +22,6 @@ export function AuthScreen({ demo, mode, onModeChange, onLogin, onRegister }: Pr
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [registrationRole, setRegistrationRole] = useState<Role>('MEMBER')
-  const [demoRole, setDemoRole] = useState<Role>('ADMIN')
   const [visible, setVisible] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -41,7 +40,7 @@ export function AuthScreen({ demo, mode, onModeChange, onLogin, onRegister }: Pr
       if (signup) {
         await onRegister(email, password, `${firstName.trim()} ${lastName.trim()}`.trim(), registrationRole)
       } else {
-        await onLogin(email, password, demoRole)
+        await onLogin(email, password)
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : tr('Unable to continue'))
@@ -86,8 +85,6 @@ export function AuthScreen({ demo, mode, onModeChange, onLogin, onRegister }: Pr
           </button>
           {registrationBlocked && <div className="auth-role-note" role="status">{tr('Cloud API currently creates member accounts only. An existing administrator must grant the administrator role.')}</div>}
         </>}
-
-        {demo && !signup && <label className="auth-demo-role">{tr('Demo role')}<select value={demoRole} onChange={event => setDemoRole(event.target.value as Role)}><option value="ADMIN">{tr('Administrator')}</option><option value="MEMBER">{tr('Member')}</option></select></label>}
 
         {error && <div className="auth-error" role="alert">{tr(error)}</div>}
         <button className="auth-submit" disabled={busy || registrationBlocked}>{tr(busy ? 'Please wait…' : signup ? 'Create account' : 'Sign in')}<ArrowRight /></button>

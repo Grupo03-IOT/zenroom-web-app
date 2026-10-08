@@ -97,7 +97,6 @@ export function Shell({ children }: {
           <button className="avatar" onClick={() => navigate('profile')} aria-label={tr("Open profile")}>{session.name[0]?.toUpperCase() || 'S'}</button>
         </div>
       </header>
-      {demo && <div className="demo-bar">{tr("Demo mode \u00B7 sample data. Set ")}<code>{tr("VITE_DEMO_MODE=false")}</code>{tr(" to use Cloud API.")}</div>}
       {loading && <div className="state-bar">{tr("Loading current data\u2026")}</div>}
       {error && <div className="state-bar error">{tr(error)}</div>}
       {notice && <div className="toast" role="status">{tr(notice)}</div>}

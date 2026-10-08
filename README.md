@@ -29,7 +29,9 @@ El selector **ES / EN** está en la pantalla de acceso y en la barra superior de
 
 ## Modo demo y conexión real
 
-El proyecto inicia en **modo demo** para poder recorrer el diseño sin hardware ni servidores. El aviso visible en pantalla identifica esos datos de ejemplo. Se puede elegir el rol administrador o miembro en el inicio de sesión de demo.
+El proyecto inicia en **modo demo** para poder recorrer el diseño sin hardware ni servidores. El rol se determina por las credenciales de la cuenta de prueba, sin selector de rol en el inicio de sesión.
+
+El formulario de registro también permite crear cuentas de prueba temporales mientras la página permanece abierta. Las cuentas de prueba no existen en Cloud API.
 
 Para usar las APIs, copia `.env.example` a `.env.local` y cambia:
 
