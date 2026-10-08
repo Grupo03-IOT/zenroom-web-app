@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import type { Session, Role } from '../contexts/identity/domain/session';
 import { signIn, signUp } from '../contexts/identity/infrastructure/identityApi';
+import { registerDemo, signInDemo } from '../contexts/identity/infrastructure/demoIdentity';
 import type { Room, RoomType, Site } from '../contexts/monitoring/domain/models';
 import { monitoringApi } from '../contexts/monitoring/infrastructure/monitoringApi';
 import type { EdgeAlert, EdgeRoom } from '../contexts/alerting/domain/models';
@@ -151,23 +152,25 @@ export default function App() {
         } void refresh(); }, 60000);
         return () => window.clearInterval(timer);
     }, [session, refresh]);
-    async function login(email: string, password: string, role: Role, demoName?: string) {
-        setError('');
+    function enterSession(next: Session) {
         const requested = safeNext();
-        const next = demo ? { token: 'demo', email, name: demoName || email.split('@')[0] || 'Demo user', role, expiresAt: Date.now() + 86400000 } : await signIn(email, password);
         sessionStorage.setItem('sensework-session', JSON.stringify(next));
         setSession(next);
         navigate(requested && canVisit(requested.page, next.role) ? requested.page : defaultPage(next.role), requested?.roomId);
     }
+    async function login(email: string, password: string) {
+        setError('');
+        enterSession(demo ? signInDemo(email, password) : await signIn(email, password));
+    }
     async function register(email: string, password: string, name: string, role: Role) {
         if (demo) {
-            await login(email, password, role, name);
+            enterSession(registerDemo(email, password, name, role));
             return;
         }
         if (role === 'ADMIN')
             throw new Error('Cloud API currently creates member accounts only. An existing administrator must grant the administrator role.');
         await signUp(email, password, name);
-        await login(email, password, 'MEMBER');
+        await login(email, password);
     }
     const context = useMemo<AppState | null>(() => session ? ({
         demo, session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId,
