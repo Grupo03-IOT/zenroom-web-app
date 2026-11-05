@@ -152,6 +152,8 @@ export const spanish: Record<string, string> = {
   'unavailable': 'no disponible',
   'Noise (LAeq)': 'Ruido (LAeq)',
   'Temperature': 'Temperatura',
+  'Early temperature warning': 'Aviso temprano de temperatura',
+  'min forecast': 'min de pronóstico',
   'Humidity': 'Humedad',
   'Presence': 'Presencia',
   'No recent data': 'Sin datos recientes',
