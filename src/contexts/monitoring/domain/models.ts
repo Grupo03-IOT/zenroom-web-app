@@ -1,6 +1,7 @@
 export interface Site { id: string; code: string; name: string; address: string; timezone: string }
 export interface RoomType { id: string; siteId: string; code: string; displayName: string; description: string }
-export interface Latest { ts: string; laeq: number | null; tempC: number | null; rhPct: number | null; ppd: number | null; thermalVerdict: string | null; occupiedPct: number | null; complete: boolean }
+export interface TemperatureForecast { probability: number; horizonMin: number; temperatureLimitC: number; modelVersion?: string | null; generatedAt?: string | null }
+export interface Latest { ts: string; laeq: number | null; tempC: number | null; rhPct: number | null; ppd: number | null; thermalVerdict: string | null; occupiedPct: number | null; complete: boolean; forecast?: TemperatureForecast | null }
 export interface Room { id: string; code: string; displayName: string; floor: string; capacity: number | null; areaM2: number | null; active: boolean; classified: boolean; latest: Latest | null; roomTypeId?: string }
 export interface Reading {
   roomId: string; ts: string; periodS: number;
