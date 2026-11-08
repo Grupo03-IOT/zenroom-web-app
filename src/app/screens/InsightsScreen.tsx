@@ -112,7 +112,7 @@ export function Insights() {
     setTemperatureThreshold(null)
     const thresholds = room.roomTypeId ? alertingApi.thresholds(session.token, room.roomTypeId) : Promise.resolve([])
     void Promise.allSettled([
-      loadAnalytics(session.token, room.id, from.toISOString(), to.toISOString()),
+      loadAnalytics(session.token, room.id, to, Number(period)),
       monitoringApi.readings(session.token, room.id, from.toISOString(), to.toISOString()),
       thresholds,
     ]).then(([summary, readings, levels]) => {

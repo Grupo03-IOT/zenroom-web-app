@@ -154,6 +154,7 @@ export const spanish: Record<string, string> = {
   'Temperature': 'Temperatura',
   'Early temperature warning': 'Aviso temprano de temperatura',
   'min forecast': 'min de pronóstico',
+  'Create a room type before saving thresholds.': 'Crea un tipo de sala antes de guardar los umbrales.',
   'Humidity': 'Humedad',
   'Presence': 'Presencia',
   'No recent data': 'Sin datos recientes',
