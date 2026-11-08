@@ -31,6 +31,7 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
     } catch { /* The response does not contain JSON. */ }
     throw new ApiError(response.status, message)
   }
+  if (response.status === 204) return undefined as T
   const body: unknown = await response.json()
   return toCamel(body) as T
 }
@@ -45,4 +46,8 @@ export function put<T>(path: string, body: unknown, token: string): Promise<T> {
 
 export function patch<T>(path: string, body: unknown, token: string): Promise<T> {
   return request<T>(path, { method: 'PATCH', body: JSON.stringify(toSnake(body)) }, token)
+}
+
+export function del(path: string, token: string): Promise<void> {
+  return request<void>(path, { method: 'DELETE' }, token)
 }

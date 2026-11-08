@@ -15,6 +15,6 @@ export function signUp(email: string, password: string, displayName: string) {
 
 export function createEdgeCredential(token: string, code: string) {
   return post<{ id: string; code: string; active: boolean; scopes: string[]; apiKey: string }>(
-    '/api/v1/credentials', { code, scopes: ['readings:write', 'thresholds:read'] }, token,
+    '/api/v1/credentials', { code, scopes: ['readings:write', 'thresholds:read', 'edges:heartbeat'] }, token,
   )
 }
