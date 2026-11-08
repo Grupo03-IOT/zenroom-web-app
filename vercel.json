@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    { "source": "/cloud/:path*", "destination": "https://cafecito-app.icywater-8ce04e92.northcentralus.azurecontainerapps.io/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

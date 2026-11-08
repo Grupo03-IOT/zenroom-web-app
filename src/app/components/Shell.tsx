@@ -69,7 +69,7 @@ export function Logo() { return <span className="brand"><img className="brand-ma
 export function Shell({ children }: {
     children: ReactNode;
 }) {
-    const { session, page, navigate, selectedSite, sites, selectSite, alerts, loading, error, notice, demo } = useApp();
+    const { session, page, navigate, selectedSite, sites, selectSite, loading, error, notice } = useApp();
     const [menuOpen, setMenuOpen] = useState(false);
     const isAdmin = session.role === 'ADMIN';
     const nav = isAdmin ? adminNav : memberNav;
@@ -93,7 +93,7 @@ export function Shell({ children }: {
         <div className="topbar-actions">
           <LanguageToggle />
           {sites.length > 0 && <label className="site-select"><img src={locationIcon} alt=""/><select value={selectedSite?.id || ''} onChange={event => selectSite(event.target.value)} aria-label={tr("Select site")}>{sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>}
-          {isAdmin && <button className="alert-pill" onClick={() => navigate('alerts')}><img src={alertPillIcon} alt=""/>{demo ? `${alerts.length} ${tr('active alerts')}` : tr('Alerts pending API')}</button>}
+          {isAdmin && <button className="alert-pill" onClick={() => navigate('alerts')}><img src={alertPillIcon} alt=""/>{tr('Alerts unavailable')}</button>}
           <button className="avatar" onClick={() => navigate('profile')} aria-label={tr("Open profile")}>{session.name[0]?.toUpperCase() || 'S'}</button>
         </div>
       </header>
