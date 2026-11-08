@@ -26,6 +26,8 @@ interface AppState {
     sites: Site[];
     selectedSite: Site | undefined;
     selectSite: (id: string) => void;
+    refreshMs: number;
+    setRefreshMs: (ms: number) => void;
     rooms: Room[];
     devices: Device[];
     gateways: Gateway[];
@@ -203,15 +205,20 @@ export default function App() {
         });
         return () => { cancelled = true; };
     }, [session?.token, selectedSite?.id, allRooms]);
+    const [refreshMs, setRefreshMsState] = useState<number>(() => {
+        const saved = Number(window.localStorage.getItem('zenroom.refreshMs'));
+        return [10000, 30000, 60000, 300000].includes(saved) ? saved : 30000;
+    });
+    const setRefreshMs = useCallback((ms: number) => { window.localStorage.setItem('zenroom.refreshMs', String(ms)); setRefreshMsState(ms); }, []);
     useEffect(() => {
         if (!session)
             return;
         const timer = window.setInterval(() => { if (session.expiresAt <= Date.now()) {
             signOut();
             return;
-        } void refresh(); }, 60000);
+        } void refresh(); }, refreshMs);
         return () => window.clearInterval(timer);
-    }, [session, refresh, signOut]);
+    }, [session, refresh, signOut, refreshMs]);
     function enterSession(next: Session) {
         const requested = safeNext();
         sessionStorage.setItem('sensework-session', JSON.stringify(next));
@@ -230,10 +237,10 @@ export default function App() {
         await login(email, password);
     }
     const context = useMemo<AppState | null>(() => session ? ({
-        session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId,
+        session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId, refreshMs, setRefreshMs,
         rooms, devices, gateways, statusFor, roomTypes, loading, error, notice, notify, refresh,
         setRooms, setRoomTypes, setSites, signOut,
-    }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh]);
+    }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh, refreshMs, setRefreshMs]);
     if (!session)
         return <AuthScreen mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
     return <Context.Provider value={context}><Shell>{renderPage(page)}</Shell></Context.Provider>;

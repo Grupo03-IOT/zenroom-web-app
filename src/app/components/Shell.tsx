@@ -69,7 +69,7 @@ export function Logo() { return <span className="brand"><img className="brand-ma
 export function Shell({ children }: {
     children: ReactNode;
 }) {
-    const { session, page, navigate, selectedSite, sites, selectSite, loading, error, notice } = useApp();
+    const { session, page, navigate, selectedSite, sites, selectSite, loading, error, notice, refreshMs, setRefreshMs } = useApp();
     const [menuOpen, setMenuOpen] = useState(false);
     const isAdmin = session.role === 'ADMIN';
     const nav = isAdmin ? adminNav : memberNav;
@@ -92,6 +92,7 @@ export function Shell({ children }: {
         <div className="topbar-title">{title ? <><h1>{tr(title[0])}</h1><p>{tr(title[1])}</p></> : null}</div>
         <div className="topbar-actions">
           <LanguageToggle />
+          <label className="site-select refresh-select"><select value={refreshMs} onChange={event => setRefreshMs(Number(event.target.value))} aria-label={tr('Refresh every')}><option value={10000}>{tr('Refresh every')} 10 s</option><option value={30000}>{tr('Refresh every')} 30 s</option><option value={60000}>{tr('Refresh every')} 1 min</option><option value={300000}>{tr('Refresh every')} 5 min</option></select></label>
           {sites.length > 0 && <label className="site-select"><img src={locationIcon} alt=""/><select value={selectedSite?.id || ''} onChange={event => selectSite(event.target.value)} aria-label={tr("Select site")}>{sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>}
           {isAdmin && <button className="alert-pill" onClick={() => navigate('alerts')}><img src={alertPillIcon} alt=""/>{tr('Alerts unavailable')}</button>}
           <button className="avatar" onClick={() => navigate('profile')} aria-label={tr("Open profile")}>{session.name[0]?.toUpperCase() || 'S'}</button>
