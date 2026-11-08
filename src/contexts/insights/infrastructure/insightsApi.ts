@@ -27,3 +27,11 @@ export interface RoomAnalytics {
 export function loadAnalytics(token: string, roomId: string, period: string) {
   return request<RoomAnalytics>(`/api/v1/insights/rooms/${roomId}?period=${encodeURIComponent(period)}`, {}, token)
 }
+
+export interface SiteRoomRanking { roomId: string; code: string; dataQuality: { receivedMinutes: number }; noiseDistribution?: { p50: number; p90: number; p95: number; sampleSize: number } }
+
+/** Comparación entre salas del local (US38): ruido P50/P90/P95 y cobertura del periodo. */
+export async function loadSiteRanking(token: string, siteId: string, period: string) {
+  const body = await request<{ rooms: SiteRoomRanking[] }>(`/api/v1/insights/sites/${siteId}/rooms?period=${encodeURIComponent(period)}`, {}, token)
+  return body.rooms
+}

@@ -5,7 +5,8 @@ import { tr, useLanguage } from '../../shared/i18n/i18n'
 import type { Room, RoomStatus } from '../../contexts/monitoring/domain/models'
 import { monitoringApi } from '../../contexts/monitoring/infrastructure/monitoringApi'
 import { alertingApi } from '../../contexts/alerting/infrastructure/alertingApi'
-import { loadAnalytics } from '../../contexts/insights/infrastructure/insightsApi'
+import { loadAnalytics, loadSiteRanking } from '../../contexts/insights/infrastructure/insightsApi'
+import type { SiteRoomRanking } from '../../contexts/insights/infrastructure/insightsApi'
 import type { RoomAnalytics } from '../../contexts/insights/infrastructure/insightsApi'
 import { dailyTrends, metricValue } from '../../contexts/insights/domain/dailyTrends'
 import type { DailyTrend, InsightMetric } from '../../contexts/insights/domain/dailyTrends'
@@ -92,6 +93,7 @@ export function Insights() {
   // Abre el mes de la última lectura disponible en la zona horaria del local.
   const monthParts = new Intl.DateTimeFormat('en-CA', { timeZone: selectedSite?.timezone || 'UTC', year: 'numeric', month: '2-digit' }).formatToParts(new Date(room?.latest?.ts || Date.now()))
   const selectedMonth = month || monthParts.find(part => part.type === 'year')?.value + '-' + monthParts.find(part => part.type === 'month')?.value
+  const [ranking, setRanking] = useState<SiteRoomRanking[]>([])
 
   useEffect(() => {
     if (!room) { setAnalytics(null); setTrends([]); return }
@@ -124,6 +126,13 @@ export function Insights() {
     })
     return () => { cancelled = true }
   }, [room?.id, room?.roomTypeId, selectedMonth, session.token])
+
+  useEffect(() => {
+    if (!selectedSite) { setRanking([]); return }
+    let cancelled = false
+    loadSiteRanking(session.token, selectedSite.id, selectedMonth).then(items => { if (!cancelled) setRanking(items) }).catch(() => { if (!cancelled) setRanking([]) })
+    return () => { cancelled = true }
+  }, [selectedSite?.id, selectedMonth, session.token])
 
   function handleExport() {
     if (!trends.length && !analytics) { notify('No analysis available to export.'); return }
@@ -181,7 +190,7 @@ export function Insights() {
 
         <Card className="insights-card insights-comparison">
           <h2>{tr('Room comparison')}</h2>
-          {comparisonRooms(rooms, statusFor).map(item => <div className="insight-room-row" key={item.id}><span>{item.displayName}</span><StatusBadge status={statusFor(item)} /></div>)}
+          {comparisonRooms(rooms, statusFor).map(item => { const stats = ranking.find(entry => entry.roomId === item.id)?.noiseDistribution; return <div className="insight-room-row" key={item.id}><span>{item.displayName}{stats && <small> · P90 {stats.p90.toFixed(1)} dB(A)</small>}</span><StatusBadge status={statusFor(item)} /></div> })}
         </Card>
       </div>
     </div>

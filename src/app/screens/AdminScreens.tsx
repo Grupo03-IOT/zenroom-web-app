@@ -8,7 +8,7 @@ import type { Device, Room, RoomType, Reading } from '../../contexts/monitoring/
 import { monitoringApi } from '../../contexts/monitoring/infrastructure/monitoringApi';
 import { alertingApi } from '../../contexts/alerting/infrastructure/alertingApi';
 import type { Threshold } from '../../contexts/alerting/domain/models';
-import { createEdgeCredential, listEdgeCredentials, listUsers, revokeEdgeCredential } from '../../contexts/identity/infrastructure/identityApi';
+import { createEdgeCredential, listEdgeCredentials, listUsers, revokeEdgeCredential, setUserActive } from '../../contexts/identity/infrastructure/identityApi';
 import type { EdgeCredential, UserResource } from '../../contexts/identity/infrastructure/identityApi';
 import roomKpiIcon from '../../shared/assets/icon-meeting-room1.svg';
 import okKpiIcon from '../../shared/assets/icon-check-circle.svg';
@@ -108,7 +108,7 @@ export function RoomDetail({ member }: {
     <div className="status-line"><StatusBadge status={status}/><span>{tr("Last reading ")}{room.latest ? new Date(room.latest.ts).toLocaleString() : tr('unavailable')}</span></div>
     {room.latest && !hasRecentReading(room) && <Unavailable message="These are historical readings. The room has not reported in the last five minutes."/>}
     <div className="kpi-grid detail-kpis"><Kpi icon=<Volume2 /> label="Noise (LAeq)" value={fmt(room.latest?.laeq)} suffix="dB(A)" status={status}/><Kpi icon=<Thermometer /> label="Temperature" value={fmt(room.latest?.tempC)} suffix="°C"/><Kpi icon=<Activity /> label="Humidity" value={fmt(room.latest?.rhPct)} suffix="%"/><Kpi icon=<Users /> label="Presence" value={hasRecentReading(room) && room.latest?.occupiedPct != null ? tr(room.latest.occupiedPct > 50 ? 'Occupied' : 'Free') : '—'} suffix={room.latest?.occupiedPct == null ? '%' : `${Math.round(room.latest.occupiedPct)} %`}/></div>
-    <div className="content-with-aside wide"><Card><div className="card-header"><h2>{tr(metric)} · {tr('Last available hour')}</h2><div className="button-group">{!member && (['noise', 'temperature', 'humidity', 'occupancy'] as const).map(item => <button key={item} className={`button small ${metric === item ? 'primary' : 'outline'}`} onClick={() => setMetric(item)}>{tr(item)}</button>)}</div></div>{values.length ? <div className="chart"><div className="chart-grid"><span>{high.toFixed(0)}</span><span>{((high + low) / 2).toFixed(0)}</span><span>{low.toFixed(0)}</span></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={`${tr(metric)} ${tr('trend')}`}><polyline points={points} fill="none" stroke="#2e86c1" strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg></div> : <Empty title="No recent data" detail="The room has not reported readings in this period."/>}</Card><div className="aside-stack"><Card><h2>{tr("Door indicator")}</h2><p className="muted">{tr("The light at the door shows the room status.")}</p><div className="inline-note">{tr("Auto \u00B7 follows comfort status")}</div>{!member && <Unavailable message="Indicator commands are not exposed by Cloud API."/>}</Card>{!member && <Card><h2>{tr("Device connectivity")}</h2><>{devices.filter(device => device.roomId === room.id).map(device => <p key={device.id}>{device.code} · {tr(device.silent ? 'Offline' : 'Online')} · {tr('Lost batches')}: {device.lostBatches}</p>)}{!devices.some(device => device.roomId === room.id) && <p className="muted">{tr('No devices registered for this room.')}</p>}</></Card>}</div></div>
+    <div className="content-with-aside wide"><Card><div className="card-header"><h2>{tr(metric)} · {tr('Last available hour')}</h2><div className="button-group">{!member && (['noise', 'temperature', 'humidity', 'occupancy'] as const).map(item => <button key={item} className={`button small ${metric === item ? 'primary' : 'outline'}`} onClick={() => setMetric(item)}>{tr(item)}</button>)}</div></div>{values.length ? <div className="chart"><div className="chart-grid"><span>{high.toFixed(0)}</span><span>{((high + low) / 2).toFixed(0)}</span><span>{low.toFixed(0)}</span></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={`${tr(metric)} ${tr('trend')}`}><polyline points={points} fill="none" stroke="#2e86c1" strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg></div> : <Empty title="No recent data" detail="The room has not reported readings in this period."/>}</Card><div className="aside-stack">{!member && room.latest?.forecast && room.latest.forecast.probability >= 0.85 && <Card><div className="forecast-warning" role="status">{tr('Early temperature warning')}: {Math.round(room.latest.forecast.probability * 100)}% · {room.latest.forecast.horizonMin} {tr('min forecast')}</div></Card>}<Card><h2>{tr("Door indicator")}</h2><p className="muted">{tr("The light at the door shows the room status.")}</p><div className="inline-note">{tr("Auto \u00B7 follows comfort status")}</div>{!member && <Unavailable message="Indicator commands are not exposed by Cloud API."/>}</Card>{!member && <Card><h2>{tr("Device connectivity")}</h2><>{devices.filter(device => device.roomId === room.id).map(device => <p key={device.id}>{device.code} · {tr(device.silent ? 'Offline' : 'Online')} · {tr('Lost batches')}: {device.lostBatches}</p>)}{!devices.some(device => device.roomId === room.id) && <p className="muted">{tr('No devices registered for this room.')}</p>}</></Card>}</div></div>
   </>;
 }
 // El estado silent llega calculado por Cloud a partir del último lote del ESP32.
@@ -147,6 +147,9 @@ export function Thresholds() {
     const invalid = items.some(item => !Number.isFinite(item.warnValue) || item.criticalValue != null && (!Number.isFinite(item.criticalValue) || item.warnValue >= item.criticalValue) || !Number.isInteger(item.sustainedMinutes) || item.sustainedMinutes < 0);
     async function save() { if (invalid) {
         notify('Warning must be below critical. Sustained minutes must be a non-negative integer.');
+        return;
+    } if (!current) {
+        notify('Create a room type before saving thresholds.');
         return;
     } setBusy(true); try {
         const saved = await Promise.all(items.map(item => alertingApi.saveThreshold(session.token, current, item)));
@@ -190,6 +193,15 @@ export function Members() {
     const { session, notify } = useApp();
     const [search, setSearch] = useState('');
     const [members, setMembers] = useState<UserResource[]>([]);
+    const [tick, setTick] = useState(0);
+    async function toggle(member: UserResource) { try {
+        await setUserActive(session.token, member.id, !member.active);
+        notify(member.active ? 'Account deactivated.' : 'Account reactivated.');
+        setTick(value => value + 1);
+    }
+    catch (cause) {
+        notify(cause instanceof Error ? cause.message : 'Could not update the account');
+    } }
     useEffect(() => {
         let cancelled = false;
         // El directorio muestra exclusivamente las cuentas registradas en Cloud.
@@ -197,10 +209,10 @@ export function Members() {
             if (!cancelled) setMembers(users);
         }).catch(cause => { if (!cancelled) notify(cause instanceof Error ? cause.message : 'Could not load members'); });
         return () => { cancelled = true; };
-    }, [session.token]);
+    }, [session.token, tick]);
     const filtered = members.filter(member => (member.displayName + ' ' + member.email).toLowerCase().includes(search.toLowerCase()));
     return <><div className="toolbar"><label className="search-field">{tr('Search')}<input placeholder={tr('Name or email')} value={search} onChange={event => setSearch(event.target.value)}/></label><div className="toolbar-spacer"/><button className="button primary" disabled><Plus />{tr('Invite member')}</button></div>
-    <div className="content-with-aside wide"><Card className="table-card"><div className="table-scroll"><table><thead><tr><th>{tr('Name')}</th><th>{tr('Email')}</th><th>{tr('Role')}</th><th>{tr('Status')}</th></tr></thead><tbody>{filtered.map(member => <tr key={member.id}><td>{member.displayName}</td><td>{member.email}</td><td>{tr(member.roles.includes('ADMIN') ? 'Admin' : 'Member')}</td><td><span className={'status ' + (member.active ? 'status-optimal' : 'status-no-data')}><i />{tr(member.active ? 'Active' : 'Deactivated')}</span></td></tr>)}</tbody></table></div>{!filtered.length && <p className="table-empty">{tr('No members match your search.')}</p>}</Card><Card><h2>{tr('Invite member')}</h2><Unavailable message="Invitations and account changes are not available yet."/></Card></div></>;
+    <div className="content-with-aside wide"><Card className="table-card"><div className="table-scroll"><table><thead><tr><th>{tr('Name')}</th><th>{tr('Email')}</th><th>{tr('Role')}</th><th>{tr('Status')}</th><th>{tr('Action')}</th></tr></thead><tbody>{filtered.map(member => <tr key={member.id}><td>{member.displayName}</td><td>{member.email}</td><td>{tr(member.roles.includes('ADMIN') ? 'Admin' : 'Member')}</td><td><span className={'status ' + (member.active ? 'status-optimal' : 'status-no-data')}><i />{tr(member.active ? 'Active' : 'Deactivated')}</span></td><td>{member.roles.includes('ADMIN') ? '—' : <button className="text-link" onClick={() => toggle(member)}>{tr(member.active ? 'Deactivate' : 'Reactivate')}</button>}</td></tr>)}</tbody></table></div>{!filtered.length && <p className="table-empty">{tr('No members match your search.')}</p>}</Card><Card><h2>{tr('Invite member')}</h2><Unavailable message="Invitations by email are not available yet: accounts are created with a password from the sign-up form."/></Card></div></>;
 }
 // Las claves solo aparecen al crearlas; la lista nunca solicita ni conserva claves antiguas.
 export function EdgeCredentials() {

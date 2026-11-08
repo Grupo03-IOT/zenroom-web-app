@@ -1,4 +1,4 @@
-import { post, request } from '../../../shared/api/http'
+import { patch, post, request } from '../../../shared/api/http'
 import { sessionFromJwt } from '../domain/session'
 
 interface TokenResource { accessToken: string; tokenType: string; expiresIn: number }
@@ -24,3 +24,5 @@ export function createEdgeCredential(token: string, code: string) {
 export const listUsers = (token: string) => request<UserResource[]>('/api/v1/users', {}, token)
 export const listEdgeCredentials = (token: string) => request<EdgeCredential[]>('/api/v1/credentials', {}, token)
 export const revokeEdgeCredential = (token: string, id: string) => request<void>(`/api/v1/credentials/${encodeURIComponent(id)}`, { method: 'DELETE' }, token)
+
+export const setUserActive = (token: string, id: string, active: boolean) => patch<UserResource>(`/api/v1/users/${encodeURIComponent(id)}`, { active }, token)
