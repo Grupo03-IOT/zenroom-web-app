@@ -45,3 +45,12 @@ export async function loadAnalytics(token: string, roomId: string, reference: Da
     noiseAnomalies: (body.noiseEpisodes?.worst ?? []).map(episode => episode.from),
   }
 }
+
+export interface SiteRoomRanking { roomId: string; code: string; dataQuality: { receivedMinutes: number }; noiseDistribution?: { p50: number; p90: number; p95: number; sampleSize: number } }
+
+/** Comparación entre salas del local (US38): ruido P50/P90/P95 y cobertura del periodo. */
+export async function loadSiteRanking(token: string, siteId: string, reference: Date, days: number) {
+  const period = cloudPeriod(reference, days)
+  const body = await request<{ rooms: SiteRoomRanking[] }>(`/api/v1/insights/sites/${siteId}/rooms?period=${encodeURIComponent(period)}`, {}, token)
+  return body.rooms
+}
