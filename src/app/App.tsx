@@ -1,12 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Session, Role } from '../contexts/identity/domain/session';
 import { signIn, signUp } from '../contexts/identity/infrastructure/identityApi';
-import { registerDemo, signInDemo } from '../contexts/identity/infrastructure/demoIdentity';
-import type { Room, RoomType, Site } from '../contexts/monitoring/domain/models';
+import { roomStatus } from '../contexts/monitoring/domain/models';
+import type { Device, Gateway, Room, RoomStatus, RoomType, Site } from '../contexts/monitoring/domain/models';
 import { monitoringApi } from '../contexts/monitoring/infrastructure/monitoringApi';
-import type { EdgeAlert, EdgeRoom } from '../contexts/alerting/domain/models';
-import { demoAlerts, demoEdgeRooms, demoRooms, demoRoomTypes, demoSites } from '../shared/demo/data';
+import type { Threshold } from '../contexts/alerting/domain/models';
+import { alertingApi } from '../contexts/alerting/infrastructure/alertingApi';
+import { sessionExpiredEvent } from '../shared/api/http';
 import { AuthScreen } from './screens/AuthScreen';
 import { Shell } from './components/Shell';
 import { Overview, AdminRooms, RoomDetail, Devices, Thresholds, Alerts, Reports, Members, EdgeCredentials, RoomTypes, Diagnostics } from './screens/AdminScreens';
@@ -17,7 +18,6 @@ import { canVisit, defaultPage, pathForPage, readRoute, safeNext } from './routi
 import type { AuthMode } from './routing';
 export type Page = 'overview' | 'rooms' | 'room-detail' | 'devices' | 'alerts' | 'insights' | 'reports' | 'members' | 'thresholds' | 'edge-credentials' | 'room-types' | 'diagnostics' | 'member-rooms' | 'member-detail' | 'member-report' | 'profile' | 'terms' | 'privacy';
 interface AppState {
-    demo: boolean;
     session: Session;
     page: Page;
     navigate: (page: Page, roomId?: string) => void;
@@ -27,9 +27,10 @@ interface AppState {
     selectedSite: Site | undefined;
     selectSite: (id: string) => void;
     rooms: Room[];
+    devices: Device[];
+    gateways: Gateway[];
+    statusFor: (room: Room) => RoomStatus;
     roomTypes: RoomType[];
-    alerts: EdgeAlert[];
-    edgeRooms: EdgeRoom[];
     loading: boolean;
     error: string;
     notice: string;
@@ -38,19 +39,17 @@ interface AppState {
     setRooms: React.Dispatch<React.SetStateAction<Room[]>>;
     setRoomTypes: React.Dispatch<React.SetStateAction<RoomType[]>>;
     setSites: React.Dispatch<React.SetStateAction<Site[]>>;
-    setAlerts: React.Dispatch<React.SetStateAction<EdgeAlert[]>>;
     signOut: () => void;
 }
 const Context = createContext<AppState | null>(null);
 export function useApp() { const value = useContext(Context); if (!value)
     throw new Error('App context missing'); return value; }
-const demo = import.meta.env.VITE_DEMO_MODE !== 'false';
 const saved = (() => { try {
     const raw = sessionStorage.getItem('sensework-session');
     if (!raw)
         return null;
     const session = JSON.parse(raw) as Session;
-    return session.expiresAt > Date.now() && (session.token === 'demo') === demo ? session : null;
+    return session.expiresAt > Date.now() && session.token?.split('.').length === 3 ? session : null;
 }
 catch {
     return null;
@@ -64,15 +63,18 @@ export default function App() {
     });
     const [authMode, setAuthMode] = useState<AuthMode>(() => readRoute().authMode ?? 'login');
     const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>(() => readRoute().roomId);
-    const [sites, setSites] = useState<Site[]>(demo ? demoSites : []);
-    const [selectedSiteId, setSelectedSiteId] = useState<string>(demo ? demoSites[0].id : '');
-    const [rooms, setRooms] = useState<Room[]>(demo ? demoRooms : []);
-    const [roomTypes, setRoomTypes] = useState<RoomType[]>(demo ? demoRoomTypes : []);
-    const [alerts, setAlerts] = useState<EdgeAlert[]>(demo ? demoAlerts : []);
-    const edgeRooms: EdgeRoom[] = demo ? demoEdgeRooms : [];
+    const [sites, setSites] = useState<Site[]>([]);
+    const [selectedSiteId, setSelectedSiteId] = useState<string>('');
+    const [allRooms, setRooms] = useState<Room[]>([]);
+    const [allDevices, setDevices] = useState<Device[]>([]);
+    const [allGateways, setGateways] = useState<Gateway[]>([]);
+    const [thresholdsByType, setThresholdsByType] = useState<Record<string, Threshold[]>>({});
+    const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
+    const activeToken = useRef(session?.token);
+    activeToken.current = session?.token;
     const notify = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(''), 5500); };
     const navigate = (next: Page, roomId?: string) => {
         const destination = pathForPage(next, roomId ?? selectedRoomId);
@@ -110,48 +112,106 @@ export default function App() {
         return () => window.removeEventListener('popstate', syncRoute);
     }, [session?.role]);
     const selectedSite = sites.find(site => site.id === selectedSiteId) || sites[0];
-    const selectedRoom = rooms.find(room => room.id === selectedRoomId);
+    // El selector de local filtra salas, dispositivos y gateways con sus identificadores reales.
+    const rooms = allRooms.filter(room => room.siteId === selectedSite?.id);
+    const devices = allDevices.filter(device => rooms.some(room => room.id === device.roomId));
+    const gateways = allGateways.filter(gateway => gateway.siteId === selectedSite?.id);
+    const selectedRoom = allRooms.find(room => room.id === selectedRoomId);
+    const statusFor = (room: Room) => roomStatus(room, thresholdsByType[room.roomTypeId || ''] || []);
     const openRoom = (room: Room) => navigate(session?.role === 'MEMBER' ? 'member-detail' : 'room-detail', room.id);
-    const signOut = () => {
+    const signOut = useCallback(() => {
         sessionStorage.removeItem('sensework-session');
+        activeToken.current = undefined;
         window.history.pushState(null, '', '/login');
         setAuthMode('login');
         setSession(null);
-    };
+        setRooms([]);
+        setSites([]);
+        setRoomTypes([]);
+        setDevices([]);
+        setGateways([]);
+        setThresholdsByType({});
+        setSelectedSiteId('');
+        setSelectedRoomId(undefined);
+        setLoading(false);
+        setError('');
+        setNotice('');
+    }, []);
+    useEffect(() => {
+        const expire = (event: Event) => {
+            if ((event as CustomEvent<string>).detail === activeToken.current) signOut();
+        };
+        window.addEventListener(sessionExpiredEvent, expire);
+        return () => window.removeEventListener(sessionExpiredEvent, expire);
+    }, [signOut]);
+    useEffect(() => {
+        if (selectedRoom?.siteId) setSelectedSiteId(selectedRoom.siteId);
+    }, [selectedRoom?.id, selectedRoom?.siteId]);
     const refresh = useCallback(async () => {
-        if (!session || demo)
+        if (!session)
             return;
         setLoading(true);
         setError('');
         try {
-            const [nextSites, nextRooms] = await Promise.all([monitoringApi.sites(session.token), monitoringApi.rooms(session.token)]);
-            setSites(nextSites);
-            setRooms(nextRooms);
-            setSelectedSiteId(id => id || nextSites[0]?.id || '');
+            const results = await Promise.allSettled([
+                monitoringApi.sites(session.token),
+                monitoringApi.rooms(session.token),
+                session.role === 'ADMIN' ? monitoringApi.devices(session.token) : Promise.resolve<Device[]>([]),
+                session.role === 'ADMIN' ? monitoringApi.gateways(session.token) : Promise.resolve<Gateway[]>([]),
+            ]);
+            if (activeToken.current !== session.token) return;
+            const [nextSites, nextRooms, nextDevices, nextGateways] = results;
+            if (nextSites.status === 'fulfilled') {
+                setSites(nextSites.value);
+                setSelectedSiteId(id => nextSites.value.some(site => site.id === id) ? id : nextSites.value[0]?.id || '');
+            }
+            if (nextRooms.status === 'fulfilled') setRooms(nextRooms.value);
+            if (nextDevices.status === 'fulfilled') setDevices(nextDevices.value);
+            if (nextGateways.status === 'fulfilled') setGateways(nextGateways.value);
+            const failed = results.find(result => result.status === 'rejected');
+            if (failed?.status === 'rejected') throw failed.reason;
         }
         catch (cause) {
-            setError(cause instanceof Error ? cause.message : 'Could not load data');
+            if (activeToken.current === session.token) setError(cause instanceof Error ? cause.message : 'Could not load data');
         }
         finally {
-            setLoading(false);
+            if (activeToken.current === session.token) setLoading(false);
         }
-    }, [session]);
+    }, [session?.token, session?.role]);
     useEffect(() => { if (session)
         void refresh(); }, [session, refresh]);
     useEffect(() => {
-        if (!session || demo || !selectedSite)
-            return;
-        monitoringApi.roomTypes(session.token, selectedSite.id).then(setRoomTypes).catch(() => setRoomTypes([]));
-    }, [session, selectedSiteId, selectedSite?.id]);
+        setRoomTypes([]);
+        setThresholdsByType({});
+    }, [session?.token, selectedSite?.id]);
     useEffect(() => {
-        if (!session || demo)
+        if (!session || !selectedSite) return;
+        let cancelled = false;
+        void monitoringApi.roomTypes(session.token, selectedSite.id).then(async types => {
+            if (cancelled) return;
+            setRoomTypes(types);
+            const results = await Promise.allSettled(types.map(type => alertingApi.thresholds(session.token, type.id)));
+            if (cancelled) return;
+            setThresholdsByType(Object.fromEntries(types.map((type, index) => {
+                const result = results[index];
+                return [type.id, result.status === 'fulfilled' ? result.value : []];
+            })));
+            const failed = results.find(result => result.status === 'rejected');
+            if (failed?.status === 'rejected') setError(failed.reason instanceof Error ? failed.reason.message : 'Could not load thresholds');
+        }).catch(cause => {
+            if (!cancelled) setError(cause instanceof Error ? cause.message : 'Could not load room types');
+        });
+        return () => { cancelled = true; };
+    }, [session?.token, selectedSite?.id, allRooms]);
+    useEffect(() => {
+        if (!session)
             return;
         const timer = window.setInterval(() => { if (session.expiresAt <= Date.now()) {
             signOut();
             return;
         } void refresh(); }, 60000);
         return () => window.clearInterval(timer);
-    }, [session, refresh]);
+    }, [session, refresh, signOut]);
     function enterSession(next: Session) {
         const requested = safeNext();
         sessionStorage.setItem('sensework-session', JSON.stringify(next));
@@ -160,25 +220,22 @@ export default function App() {
     }
     async function login(email: string, password: string) {
         setError('');
-        enterSession(demo ? signInDemo(email, password) : await signIn(email, password));
+        enterSession(await signIn(email, password));
     }
     async function register(email: string, password: string, name: string, role: Role) {
-        if (demo) {
-            enterSession(registerDemo(email, password, name, role));
-            return;
-        }
+
         if (role === 'ADMIN')
             throw new Error('Cloud API currently creates member accounts only. An existing administrator must grant the administrator role.');
         await signUp(email, password, name);
         await login(email, password);
     }
     const context = useMemo<AppState | null>(() => session ? ({
-        demo, session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId,
-        rooms, roomTypes, alerts, edgeRooms, loading, error, notice, notify, refresh,
-        setRooms, setRoomTypes, setSites, setAlerts, signOut,
-    }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, roomTypes, alerts, edgeRooms, loading, error, notice, refresh]);
+        session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId,
+        rooms, devices, gateways, statusFor, roomTypes, loading, error, notice, notify, refresh,
+        setRooms, setRoomTypes, setSites, signOut,
+    }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh]);
     if (!session)
-        return <AuthScreen demo={demo} mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
+        return <AuthScreen mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
     return <Context.Provider value={context}><Shell>{renderPage(page)}</Shell></Context.Provider>;
 }
 function renderPage(page: Page): ReactNode {

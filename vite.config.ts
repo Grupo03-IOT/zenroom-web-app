@@ -1,10 +1,15 @@
 import { defineConfig } from 'vite'
 
-export default defineConfig({
-  server: {
-    host: '127.0.0.1',
-    proxy: {
-      '/cloud': { target: 'http://127.0.0.1:8080', changeOrigin: true, rewrite: path => path.replace(/^\/cloud/, '') },
-    },
+// Reenvía las peticiones de desarrollo y preview al Cloud desplegado en Azure.
+const proxy = {
+  '/cloud': {
+    target: 'https://cafecito-app.icywater-8ce04e92.northcentralus.azurecontainerapps.io',
+    changeOrigin: true,
+    rewrite: (path: string) => path.replace(/^\/cloud/, ''),
   },
+}
+
+export default defineConfig({
+  server: { host: '127.0.0.1', proxy },
+  preview: { host: '127.0.0.1', proxy },
 })
