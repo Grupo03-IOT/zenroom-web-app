@@ -6,7 +6,8 @@ import { roomStatus } from '../../contexts/monitoring/domain/models'
 import type { Room } from '../../contexts/monitoring/domain/models'
 import { monitoringApi } from '../../contexts/monitoring/infrastructure/monitoringApi'
 import { alertingApi } from '../../contexts/alerting/infrastructure/alertingApi'
-import { loadAnalytics } from '../../contexts/insights/infrastructure/insightsApi'
+import { loadAnalytics, loadSiteRanking } from '../../contexts/insights/infrastructure/insightsApi'
+import type { SiteRoomRanking } from '../../contexts/insights/infrastructure/insightsApi'
 import type { RoomAnalytics } from '../../contexts/insights/infrastructure/insightsApi'
 import { dailyTrends, demoDailyTrends, metricValue } from '../../contexts/insights/domain/dailyTrends'
 import type { DailyTrend, InsightMetric } from '../../contexts/insights/domain/dailyTrends'
@@ -78,7 +79,7 @@ function comparisonRooms(rooms: Room[]) {
 }
 
 export function Insights() {
-  const { demo, session, rooms, notify } = useApp()
+  const { demo, session, rooms, notify, selectedSite } = useApp()
   const { language } = useLanguage()
   const [roomId, setRoomId] = useState('')
   const [period, setPeriod] = useState('30')
@@ -88,6 +89,7 @@ export function Insights() {
   const [noiseThreshold, setNoiseThreshold] = useState<number | null>(null)
   const [temperatureThreshold, setTemperatureThreshold] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const [ranking, setRanking] = useState<SiteRoomRanking[]>([])
   const room = rooms.find(item => item.id === roomId) || (demo ? rooms.find(item => item.code === 'sala-03') : undefined) || rooms[0]
 
   useEffect(() => {
@@ -127,6 +129,13 @@ export function Insights() {
     })
     return () => { cancelled = true }
   }, [room?.id, room?.roomTypeId, period, demo, session.token])
+
+  useEffect(() => {
+    if (demo || !selectedSite) { setRanking([]); return }
+    let cancelled = false
+    loadSiteRanking(session.token, selectedSite.id, new Date(), Number(period)).then(items => { if (!cancelled) setRanking(items) }).catch(() => { if (!cancelled) setRanking([]) })
+    return () => { cancelled = true }
+  }, [selectedSite?.id, period, demo, session.token])
 
   function handleExport() {
     if (!trends.length && !analytics) { notify('No analysis available to export.'); return }
@@ -183,7 +192,7 @@ export function Insights() {
 
         <Card className="insights-card insights-comparison">
           <h2>{tr('Room comparison')}</h2>
-          {comparisonRooms(rooms).map(item => <div className="insight-room-row" key={item.id}><span>{item.displayName}</span><StatusBadge status={roomStatus(item)} /></div>)}
+          {comparisonRooms(rooms).map(item => { const stats = ranking.find(entry => entry.roomId === item.id)?.noiseDistribution; return <div className="insight-room-row" key={item.id}><span>{item.displayName}{stats && <small> · P90 {number(stats.p90, language, 1)} dB(A)</small>}</span><StatusBadge status={roomStatus(item)} /></div> })}
         </Card>
       </div>
     </div>
