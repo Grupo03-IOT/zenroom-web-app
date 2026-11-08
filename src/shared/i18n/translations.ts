@@ -155,6 +155,7 @@ export const spanish: Record<string, string> = {
   'Early temperature warning': 'Aviso temprano de temperatura',
   'min forecast': 'min de pronóstico',
   'Create a room type before saving thresholds.': 'Crea un tipo de sala antes de guardar los umbrales.',
+  'No device has reported in this room yet.': 'Ningún dispositivo ha reportado en esta sala todavía.',
   'Never reported': 'Nunca ha reportado',
   'Could not load devices': 'No se pudieron cargar los dispositivos',
   'Could not load diagnostics': 'No se pudo cargar el diagnóstico',

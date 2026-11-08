@@ -127,3 +127,17 @@ export function CredentialsTable({ refreshKey }: { refreshKey: string }) {
     </tr>)}</tbody>
   </table>{!data.length && <div className="table-empty">{tr('No credentials yet.')}</div>}</div>
 }
+
+/** Conectividad de una sala (US35): estado de los dispositivos que reportan en ella. */
+export function RoomConnectivity({ roomId }: { roomId: string }) {
+  const { data, error } = useLoad(fleetApi.devices, [roomId])
+  if (error) return <Unavailable message={error} />
+  if (!data) return <p className="muted">{tr('Loading current data…')}</p>
+  const devices = data.filter(device => device.roomId === roomId)
+  if (!devices.length) return <Unavailable message="No device has reported in this room yet." />
+  return <>{devices.map(device => <div key={device.id}>
+    <p className="muted">{tr('Device ')}{device.code}</p>
+    <p><span className={`status ${device.silent ? 'status-no-data' : 'status-optimal'}`}><i />{tr(device.silent ? 'Offline' : 'Online')}</span></p>
+    <p className="muted">{tr('Last seen')}: {when(device.lastSeen)} · {tr('Lost batches')}: {device.lostBatches}</p>
+  </div>)}</>
+}
