@@ -1,9 +1,11 @@
 import { patch, post, request } from '../../../shared/api/http'
-import type { Reading, Room, RoomType, Site } from '../domain/models'
+import type { Device, Gateway, Reading, Room, RoomType, Site } from '../domain/models'
 
 export const monitoringApi = {
   sites: (token: string) => request<Site[]>('/api/v1/sites', {}, token),
   rooms: (token: string) => request<Room[]>('/api/v1/rooms', {}, token),
+  devices: (token: string) => request<Device[]>('/api/v1/devices', {}, token),
+  gateways: (token: string) => request<Gateway[]>('/api/v1/edges', {}, token),
   room: (token: string, id: string) => request<Room>(`/api/v1/rooms/${id}`, {}, token),
   roomTypes: (token: string, siteId: string) => request<RoomType[]>(`/api/v1/sites/${siteId}/room-types`, {}, token),
   createSite: (token: string, site: Omit<Site, 'id'>) => post<Site>('/api/v1/sites', site, token),

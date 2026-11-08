@@ -8,14 +8,13 @@ import brandIcon from '../../shared/assets/logo-isotype.svg'
 import './AuthScreen.css'
 
 interface Props {
-  demo: boolean
   mode: AuthMode
   onModeChange: (mode: AuthMode) => void
   onLogin: (email: string, password: string) => Promise<void>
   onRegister: (email: string, password: string, name: string, role: Role) => Promise<void>
 }
 
-export function AuthScreen({ demo, mode, onModeChange, onLogin, onRegister }: Props) {
+export function AuthScreen({ mode, onModeChange, onLogin, onRegister }: Props) {
   const signup = mode === 'signup'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -50,7 +49,7 @@ export function AuthScreen({ demo, mode, onModeChange, onLogin, onRegister }: Pr
   }
 
   const adminSignup = signup && registrationRole === 'ADMIN'
-  const registrationBlocked = adminSignup && !demo
+  const registrationBlocked = adminSignup
 
   return <div className="auth-page">
     <div className="auth-grid" aria-hidden="true" />
@@ -66,7 +65,7 @@ export function AuthScreen({ demo, mode, onModeChange, onLogin, onRegister }: Pr
         <div className="auth-logo"><img src={brandIcon} alt=""/><strong>Sense<span>Work</span></strong></div>
         <div className="auth-intro">
           <h1>{tr(signup ? 'Create your account' : 'Welcome back')}</h1>
-          <p>{tr(signup ? (adminSignup ? (demo ? 'Set up your administrator account to monitor your spaces.' : 'Administrator access requires an existing administrator.') : 'Discover the comfort of every room before choosing one.') : 'Your spaces and comfort data are waiting for you.')}</p>
+          <p>{tr(signup ? (adminSignup ? 'Administrator access requires an existing administrator.' : 'Discover the comfort of every room before choosing one.') : 'Your spaces and comfort data are waiting for you.')}</p>
         </div>
 
         {signup && <div className="auth-name-fields">
@@ -96,13 +95,13 @@ export function AuthScreen({ demo, mode, onModeChange, onLogin, onRegister }: Pr
       {!adminSignup && <aside className="auth-business-card">
         <div className="auth-business-eyebrow">SENSEWORK · {tr('FOR WORKSPACES')}</div>
         <h2>{tr('Manage a coworking space?')}<br />{tr('Understand every room in real time.')}</h2>
-        <p>{tr(demo ? 'Choose the administrator role during sign up to manage spaces, review sensor readings and respond to alerts.' : 'Cloud API creates member accounts. An existing administrator grants access to manage spaces and alerts.')}</p>
+        <p>{tr('Cloud API creates member accounts. An existing administrator grants access to manage spaces and alerts.')}</p>
         <ul>
           <li><span><Radio /></span>{tr('Live room readings')}</li>
           <li><span><Users /></span>{tr('Occupancy and comfort trends')}</li>
           <li><span><BellRing /></span>{tr('Alerts and corrective actions')}</li>
         </ul>
-        <button type="button" className="auth-business-link" onClick={() => switchMode(true, 'ADMIN')}>{tr(demo ? 'Register as an administrator' : 'View administrator access')}<ArrowRight /></button>
+        <button type="button" className="auth-business-link" onClick={() => switchMode(true, 'ADMIN')}>{tr('View administrator access')}<ArrowRight /></button>
         <div className="auth-business-foot"><Check />{tr('Built for connected spaces')}</div>
       </aside>}
     </main>
