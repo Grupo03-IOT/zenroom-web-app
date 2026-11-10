@@ -72,6 +72,7 @@ export const spanish: Record<string, string> = {
   'Terms of Service →': 'Términos del servicio →',
   'Privacy Policy →': 'Política de privacidad →',
   'Select site': 'Seleccionar local',
+  'Refresh every': 'Actualizar cada',
   'Main navigation': 'Navegación principal',
   'Open menu': 'Abrir menú',
   'Close menu': 'Cerrar menú',
