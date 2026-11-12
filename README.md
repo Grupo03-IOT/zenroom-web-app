@@ -1,6 +1,6 @@
 # SenseWork Web
 
-Aplicación React + TypeScript basada en los mockups web de [Figma](https://www.figma.com/design/xYSodRNszkA9kbobfyR6X2/SenseWork-%C2%B7-Applications-UX-UI-Design--TB1-?node-id=1-4&m=dev). Incluye pantallas de administrador y miembro, diseño adaptable y recursos SVG descargados del archivo de Figma.
+Aplicación React + TypeScript basada en los diseños web de [Figma](https://www.figma.com/design/xYSodRNszkA9kbobfyR6X2/SenseWork-%C2%B7-Applications-UX-UI-Design--TB1-?node-id=1-4&m=dev). Incluye pantallas de administrador y miembro, diseño adaptable y recursos SVG descargados del archivo de Figma.
 
 ## Abrir en WebStorm
 
@@ -27,63 +27,89 @@ Al publicar la aplicación, el servidor debe devolver `index.html` para las ruta
 
 El selector **ES / EN** está en la pantalla de acceso y en la barra superior de la aplicación. El español se muestra al abrirla por primera vez; la selección queda guardada en este navegador para las siguientes visitas.
 
-## Modo demo y conexión real
+## Conexión con Cloud API
 
-El proyecto inicia en **modo demo** para poder recorrer el diseño sin hardware ni servidores. El rol se determina por las credenciales de la cuenta de prueba, sin selector de rol en el inicio de sesión.
-
-El formulario de registro también permite crear cuentas de prueba temporales mientras la página permanece abierta. Las cuentas de prueba no existen en Cloud API.
-
-Para usar las APIs, copia `.env.example` a `.env.local` y cambia:
+La aplicación consulta exclusivamente los datos de Cloud API desplegado en Azure. Para configurar esta instalación, copia `.env.example` a `.env.local` y conserva:
 
 ```env
-VITE_DEMO_MODE=false
 VITE_CLOUD_API_URL=/cloud
 ```
 
-En WebStorm, `.env.local` se crea dentro de la carpeta `frontend-web`, al lado de `package.json`. Después de cambiarlo, reinicia `npm run dev` y vuelve a cargar la página. Si Cloud API no está en marcha, el inicio de sesión real no funcionará; para explorar las pantallas sin servidores, conserva `VITE_DEMO_MODE=true`.
 
-Durante el desarrollo, Vite reenvía `/cloud` a `http://127.0.0.1:8080`. En producción, configura esa ruta en un proxy del mismo origen o define una URL de Cloud API accesible desde el navegador. La aplicación web solo consulta **Cloud API**. Inicia Cloud API y crea un local antes de enviar lecturas.
+Durante desarrollo y `npm run preview`, Vite reenvía `/cloud` al backend desplegado. `vercel.json` define el mismo proxy para producción antes de la ruta de React. Así, las peticiones permanecen en el origen de la web aunque el backend no publique permisos CORS para localhost. En otro hosting, configura un proxy equivalente para `/cloud`; una URL absoluta en `VITE_CLOUD_API_URL` requiere que Cloud permita el origen de la web.
 
-El flujo de sensores es **ESP32 → Edge API → Cloud API → aplicación web**. Edge API recibe lotes del dispositivo, calcula agregados por minuto y alertas locales, y reintenta la subida a Cloud API si se cae la conexión. Edge usa su propia configuración `CLOUD_URL` (por defecto `http://127.0.0.1:8080/api/v1/readings`) y `CLOUD_TOKEN` para autenticarse ante Cloud. Esa configuración va en el proceso Edge, no en el navegador. El repositorio Edge documenta un simulador para producir lecturas sin hardware.
 
-El token de usuario se guarda en `sessionStorage`, se envía como `Authorization: Bearer` a Cloud API y se elimina al salir o al expirar. La capa HTTP convierte automáticamente los nombres JSON `snake_case` de Cloud API a los modelos `camelCase` de React, y a la inversa en las solicitudes.
+`.env.local` permanece fuera de Git. Reinicia `npm run dev` después de cambiar variables de entorno. El destino del proxy está configurado en `vite.config.ts` para desarrollo y preview, y en `vercel.json` para producción.
 
-## Organización DDD del frontend
+El token de usuario se guarda en `sessionStorage` y se envía como `Authorization: Bearer`. Salir, recibir un 401 o alcanzar su vencimiento termina la sesión. El cliente HTTP convierte las claves JSON entre `snake_case` y `camelCase`, limita la espera de las peticiones y admite respuestas vacías 204.
 
-- `src/contexts/identity`: sesión y autenticación.
-- `src/contexts/monitoring`: locales, tipos de sala, salas y lecturas.
-- `src/contexts/alerting`: umbrales del Cloud y modelos de alerta para la vista demo; las alertas reales esperan endpoints de Cloud.
-- `src/contexts/insights`: analítica de salas.
-- `src/shared`: transporte HTTP, datos de demostración y recursos visuales.
-- `src/app`: composición, navegación y pantallas.
+## Flujo de sensores
 
-Los modelos de dominio no hacen peticiones HTTP; cada contexto concentra sus adaptadores en `infrastructure`.
+Para probar **las tres aplicaciones en la laptop**, usa `npm run dev:local`.
+Este modo dirige `/cloud` a `http://127.0.0.1:8080`; `npm run dev` conserva el
+destino de Azure. Conserva `VITE_CLOUD_API_URL=/cloud` en `.env.local`.
+
+El ESP32 puede conservar el programa que imprime sus sensores por USB.
+En Edge ejecuta `python tools/serial_bridge.py --list-ports` y luego
+`python tools/serial_bridge.py --port COM5` con su puerto real. El detalle de
+cada sala muestra movimiento, distancia, potenciometro ADC y tres botones,
+ademas de temperatura y humedad. Edge publica minutos cerrados: la primera
+actualizacion puede tardar hasta dos minutos. Si no hay microfono, la tarjeta de
+Ruido muestra el potenciometro en ADC (0–4095), tambien
+en el grafico. Las metricas acusticas y sus umbrales siguen reservados para dBA
+medidos; el CSV incluye el ADC en una columna separada.
+
+La guia completa esta en `edge-api/docs/usb-local.md`. Las pulsaciones que no
+coincidan con una impresion de tu programa (cada 2 s) no pueden observarse en
+la web; el puente solo recibe lo que realmente imprime el dispositivo.
+
+**ESP32 → Edge API → Cloud API → aplicación web**. El navegador consulta solamente Cloud API. Las salas aparecen cuando Edge envía sus primeras lecturas y los gateways cuando envía sus primeros latidos.
+
+En el proceso Edge configura `CLOUD_URL` con la URL de Azure terminada en `/api/v1/readings`, `HEARTBEAT_URL` con `/api/v1/edges/heartbeat`, `SITE_CODE` con un código de local existente y `CLOUD_API_KEY` con una credencial emitida por Cloud. Las credenciales nuevas de la web incluyen `readings:write`, `thresholds:read` y `edges:heartbeat`. Las credenciales antiguas conservan los permisos con los que se emitieron.
+
+Las pantallas filtran salas y dispositivos por local, muestran el tipo de sala devuelto por Cloud y consultan los umbrales configurados. El estado visual compara la última lectura con esos umbrales; no equivale a una alerta sostenida. Una lectura con más de cinco minutos no se presenta como confort u ocupación actuales. Su fecha y la última hora registrada siguen disponibles para consultar el historial.
+
+La analítica consulta `period=AAAA-MM` y abre inicialmente el mes de la última lectura. Usa los límites y la zona horaria que devuelve Cloud, respeta los resultados sin evidencia concluyente y calcula el promedio diario del ruido por energía y duración.
 
 ## Funciones conectadas
 
-| Interacción | API verificada |
+| Interacción | Cloud API |
 | --- | --- |
-| Iniciar sesión | Cloud `POST /api/v1/auth/login` |
-| Registrar cuenta de miembro | Cloud `POST /api/v1/users` |
-| Listar y crear locales | Cloud `GET/POST /api/v1/sites` |
-| Listar y crear tipos de sala | Cloud `GET/POST /api/v1/sites/{siteId}/room-types` |
-| Listar salas y clasificarlas | Cloud `GET /api/v1/rooms`, `PATCH /api/v1/rooms/{roomId}` |
-| Consultar historial de sala y exportar CSV | Cloud `GET /api/v1/rooms/{roomId}/readings` |
-| Consultar y guardar umbrales | Cloud `GET/PUT /api/v1/room-types/{roomTypeId}/thresholds` |
-| Consultar analítica y exportar CSV | Cloud `GET /api/v1/insights/rooms/{roomId}` |
-| Crear credencial de Edge y copiarla | Cloud `POST /api/v1/credentials` |
+| Iniciar sesión / registrar miembro | `POST /api/v1/auth/login`, `POST /api/v1/users` |
+| Consultar cuentas | `GET /api/v1/users` |
+| Listar y crear locales | `GET/POST /api/v1/sites` |
+| Listar y crear tipos de sala | `GET/POST /api/v1/sites/{siteId}/room-types` |
+| Consultar y clasificar salas | `GET /api/v1/rooms`, `PATCH /api/v1/rooms/{roomId}` |
+| Historial y exportación CSV | `GET /api/v1/rooms/{roomId}/readings?from=...&to=...` |
+| Consultar y guardar umbrales | `GET /api/v1/room-types/{roomTypeId}/thresholds`, `PUT .../{metric}` |
+| Analítica por período y exportación CSV | `GET /api/v1/insights/rooms/{roomId}?period=AAAA-MM` |
+| Dispositivos y diagnóstico del Edge | `GET /api/v1/devices`, `GET /api/v1/edges` |
+| Crear, listar y revocar credenciales | `POST/GET /api/v1/credentials`, `DELETE /api/v1/credentials/{credentialId}` |
 
-El navegador no consume endpoints de Edge API. Los datos de alertas, dispositivos y diagnóstico que se ven en **modo demo** son ejemplos locales.
+Las operaciones de administración requieren rol `ADMIN`; las cuentas nuevas se crean como `MEMBER`. Cloud todavía no expone invitaciones, cambios de rol o activación de cuentas, reportes de incomodidad, gestión de alertas locales ni órdenes al indicador de puerta. Esas acciones permanecen deshabilitadas en la aplicación. Las pantallas legales requieren el texto aprobado del equipo antes de publicarse.
 
-## Límites de las APIs actuales
+## Organización del código
 
-Los mockups incluyen funciones que todavía no tienen endpoint en Cloud API: invitar, listar o desactivar miembros; enviar reportes de incomodidad; listar, confirmar o cerrar alertas; consultar dispositivos y diagnóstico del Edge; registrar o identificar dispositivos manualmente; mandar órdenes al indicador de puerta; listar o revocar credenciales. La interfaz muestra estas limitaciones y no simula éxito en modo real. En demo, las altas manuales de salas, la gestión de miembros y credenciales, los reportes de incomodidad y la confirmación de alertas solo cambian el estado local; no envían correos ni modifican servidores.
+| Archivo o carpeta | Responsabilidad |
+| --- | --- |
+| `src/app/App.tsx` | Sesión, navegación, actualización de datos y filtros por local. |
+| `src/app/screens` | Formularios y presentación de los datos de Cloud API. |
+| `src/contexts/identity` | Inicio de sesión, cuentas y credenciales de máquinas. |
+| `src/contexts/monitoring` | Modelos y consultas de salas, dispositivos, gateways y lecturas. |
+| `src/contexts/alerting` | Consulta y configuración de umbrales de Cloud. |
+| `src/contexts/insights` | Contrato de analítica y agregación diaria de lecturas. |
+| `src/shared/api/http.ts` | Transporte HTTP, autenticación, conversión de JSON y errores. |
+| `src/shared/i18n` | Traducciones de la interfaz. |
+| `vite.config.ts` / `vercel.json` | Proxy a Cloud en desarrollo, preview y Vercel. |
+| `scripts/check-api.mjs` | Comprobación de contratos y consultas reales sin modificar datos. |
 
-Cloud API registra cuentas nuevas con rol **MEMBER**; el diseño de alta de administrador requiere un flujo de asignación de rol del backend. Además, `RoomResource` no incluye el identificador de local ni el tipo de sala: el selector de local sí determina los tipos y umbrales configurables, pero la API actual no permite filtrar el directorio de salas por local ni mostrar con certeza el tipo de una sala después de recargar. El estado de confort que se muestra en la lista es una aproximación visual basada en lecturas y valores de ejemplo; para igualar la evaluación real se necesita publicar el estado calculado o la relación sala–tipo en la API.
+## Validación de la conexión
 
-En registro, el interruptor **Administro un coworking** crea una sesión de administrador solo en modo demo. Con Cloud API real, esa opción explica que el alta de administrador aún no está disponible y desactiva el envío; el registro de miembro sigue usando `POST /api/v1/users`.
+Con `npm run dev` en marcha, ejecuta `npm run check:api`. Comprueba salud, proxy, rutas OpenAPI y protección de endpoints. Para incluir acceso y lecturas autenticadas, define `ZENROOM_CHECK_EMAIL` y `ZENROOM_CHECK_PASSWORD` en el entorno del terminal, sin guardarlos en archivos versionados. `ZENROOM_CHECK_URL` permite cambiar la URL de comprobación, por defecto `http://127.0.0.1:5173/cloud`.
 
-Las pantallas legales son marcadores claros hasta que el equipo proporcione el texto aprobado de términos y privacidad.
+La validación consulta locales, salas, tipos, umbrales, historial y analítica. Con una cuenta administradora también consulta dispositivos, gateways, cuentas y credenciales. Las operaciones de escritura se contrastan con OpenAPI, sin crear ni revocar recursos durante esta comprobación.
+
+Para comprobar TypeScript y generar producción: `npm run build`.
 
 ## Repositorios de referencia
 
