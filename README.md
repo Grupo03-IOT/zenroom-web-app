@@ -45,6 +45,24 @@ El token de usuario se guarda en `sessionStorage` y se envía como `Authorizatio
 
 ## Flujo de sensores
 
+Para probar **las tres aplicaciones en la laptop**, usa `npm run dev:local`.
+Este modo dirige `/cloud` a `http://127.0.0.1:8080`; `npm run dev` conserva el
+destino de Azure. Conserva `VITE_CLOUD_API_URL=/cloud` en `.env.local`.
+
+El ESP32 puede conservar el programa que imprime sus sensores por USB.
+En Edge ejecuta `python tools/serial_bridge.py --list-ports` y luego
+`python tools/serial_bridge.py --port COM5` con su puerto real. El detalle de
+cada sala muestra movimiento, distancia, potenciometro ADC y tres botones,
+ademas de temperatura y humedad. Edge publica minutos cerrados: la primera
+actualizacion puede tardar hasta dos minutos. Si no hay microfono, la tarjeta de
+Ruido muestra el potenciometro en ADC (0–4095), tambien
+en el grafico. Las metricas acusticas y sus umbrales siguen reservados para dBA
+medidos; el CSV incluye el ADC en una columna separada.
+
+La guia completa esta en `edge-api/docs/usb-local.md`. Las pulsaciones que no
+coincidan con una impresion de tu programa (cada 2 s) no pueden observarse en
+la web; el puente solo recibe lo que realmente imprime el dispositivo.
+
 **ESP32 → Edge API → Cloud API → aplicación web**. El navegador consulta solamente Cloud API. Las salas aparecen cuando Edge envía sus primeras lecturas y los gateways cuando envía sus primeros latidos.
 
 En el proceso Edge configura `CLOUD_URL` con la URL de Azure terminada en `/api/v1/readings`, `HEARTBEAT_URL` con `/api/v1/edges/heartbeat`, `SITE_CODE` con un código de local existente y `CLOUD_API_KEY` con una credencial emitida por Cloud. Las credenciales nuevas de la web incluyen `readings:write`, `thresholds:read` y `edges:heartbeat`. Las credenciales antiguas conservan los permisos con los que se emitieron.
