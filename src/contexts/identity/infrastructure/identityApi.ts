@@ -14,10 +14,14 @@ export function signUp(email: string, password: string, displayName: string) {
   return post<UserResource>('/api/v1/users', { email, password, displayName })
 }
 
-// El latido permite que Cloud publique la salud y la cola de subida del Edge.
+// El latido permite que Cloud publique la salud y la cola de subida del Edge;
+// alerts:write le permite subir las alertas que abre y cierra (POST /api/v1/alerts/events).
+// Las credenciales emitidas antes conservan sus permisos: hay que recrearlas para subir alertas.
+export const edgeCredentialScopes = ['readings:write', 'thresholds:read', 'edges:heartbeat', 'alerts:write'] as const
+
 export function createEdgeCredential(token: string, code: string) {
   return post<EdgeCredential & { apiKey: string }>(
-    '/api/v1/credentials', { code, scopes: ['readings:write', 'thresholds:read', 'edges:heartbeat'] }, token,
+    '/api/v1/credentials', { code, scopes: [...edgeCredentialScopes] }, token,
   )
 }
 

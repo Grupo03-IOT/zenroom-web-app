@@ -1,5 +1,15 @@
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message) }
+  // code es el identificador estable del catálogo de errores de Cloud (p. ej. ALERTING_ALERT_NOT_OPEN).
+  constructor(public status: number, message: string, public code?: string) { super(message) }
+}
+
+/** Añade a la ruta los parámetros con valor; los nombres se envían tal cual (snake_case del contrato). */
+export function withQuery(path: string, params: Record<string, string | number | boolean | null | undefined>): string {
+  const query = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&')
+  return query ? `${path}?${query}` : path
 }
 
 const cloudBase = (import.meta.env.VITE_CLOUD_API_URL || '/cloud').replace(/\/+$/, '')
@@ -31,11 +41,13 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
       // Una sesión rechazada vuelve al acceso; los errores de permisos conservan la sesión.
       if (response.status === 401 && token) window.dispatchEvent(new CustomEvent(sessionExpiredEvent, { detail: token }))
       let message = `${response.status} ${response.statusText}`
+      let code: string | undefined
       try {
         const body = await response.json()
         message = body.message || body.error || body.detail || message
+        code = typeof body.code === 'string' ? body.code : undefined
       } catch { /* La respuesta de error puede no contener JSON. */ }
-      throw new ApiError(response.status, message)
+      throw new ApiError(response.status, message, code)
     }
     // La revocación de credenciales devuelve 204 y no incluye JSON.
     const text = await response.text()

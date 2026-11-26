@@ -5,14 +5,16 @@ import { signIn, signUp } from '../contexts/identity/infrastructure/identityApi'
 import { roomStatus } from '../contexts/monitoring/domain/models';
 import type { Device, Gateway, Room, RoomStatus, RoomType, Site } from '../contexts/monitoring/domain/models';
 import { monitoringApi } from '../contexts/monitoring/infrastructure/monitoringApi';
-import type { Threshold } from '../contexts/alerting/domain/models';
+import type { Alert, Threshold } from '../contexts/alerting/domain/models';
 import { alertingApi } from '../contexts/alerting/infrastructure/alertingApi';
 import { sessionExpiredEvent } from '../shared/api/http';
 import { AuthScreen } from './screens/AuthScreen';
 import { Shell } from './components/Shell';
-import { Overview, AdminRooms, RoomDetail, Devices, Thresholds, Alerts, Reports, Members, EdgeCredentials, RoomTypes, Diagnostics } from './screens/AdminScreens';
+import { Overview, AdminRooms, RoomDetail, Devices, Thresholds, Reports, Members, EdgeCredentials, RoomTypes, Diagnostics } from './screens/AdminScreens';
+import { Alerts } from './screens/AlertsScreen';
 import { Insights } from './screens/InsightsScreen';
-import { MemberRooms, MemberReport, MemberProfile } from './screens/MemberScreens';
+import { MemberRooms, MemberProfile } from './screens/MemberScreens';
+import { MemberReport } from './screens/DiscomfortScreens';
 import { useLanguage, tr } from '../shared/i18n/i18n';
 import { canVisit, defaultPage, pathForPage, readRoute, safeNext } from './routing';
 import type { AuthMode } from './routing';
@@ -42,6 +44,9 @@ interface AppState {
     setRoomTypes: React.Dispatch<React.SetStateAction<RoomType[]>>;
     setSites: React.Dispatch<React.SetStateAction<Site[]>>;
     signOut: () => void;
+    /** Alertas OPEN de las salas del local elegido; null si Cloud no respondió. */
+    openAlerts: Alert[] | null;
+    refreshAlerts: () => Promise<void>;
 }
 const Context = createContext<AppState | null>(null);
 export function useApp() { const value = useContext(Context); if (!value)
@@ -72,6 +77,7 @@ export default function App() {
     const [allGateways, setGateways] = useState<Gateway[]>([]);
     const [thresholdsByType, setThresholdsByType] = useState<Record<string, Threshold[]>>({});
     const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+    const [allOpenAlerts, setOpenAlerts] = useState<Alert[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
@@ -119,6 +125,7 @@ export default function App() {
     const devices = allDevices.filter(device => rooms.some(room => room.id === device.roomId));
     const gateways = allGateways.filter(gateway => gateway.siteId === selectedSite?.id);
     const selectedRoom = allRooms.find(room => room.id === selectedRoomId);
+    const openAlerts = allOpenAlerts && allOpenAlerts.filter(alert => rooms.some(room => room.id === alert.roomId));
     const statusFor = (room: Room) => roomStatus(room, thresholdsByType[room.roomTypeId || ''] || []);
     const openRoom = (room: Room) => navigate(session?.role === 'MEMBER' ? 'member-detail' : 'room-detail', room.id);
     const signOut = useCallback(() => {
@@ -133,6 +140,7 @@ export default function App() {
         setDevices([]);
         setGateways([]);
         setThresholdsByType({});
+        setOpenAlerts(null);
         setSelectedSiteId('');
         setSelectedRoomId(undefined);
         setLoading(false);
@@ -180,8 +188,22 @@ export default function App() {
             if (activeToken.current === session.token) setLoading(false);
         }
     }, [session?.token, session?.role]);
-    useEffect(() => { if (session)
-        void refresh(); }, [session, refresh]);
+    // El contador de alertas abiertas se consulta aparte: si falla, no bloquea el resto de los datos.
+    const refreshAlerts = useCallback(async () => {
+        if (!session || session.role !== 'ADMIN')
+            return;
+        try {
+            const alerts = await alertingApi.alerts(session.token, { status: 'OPEN' });
+            if (activeToken.current === session.token) setOpenAlerts(alerts);
+        }
+        catch {
+            if (activeToken.current === session.token) setOpenAlerts(null);
+        }
+    }, [session?.token, session?.role]);
+    useEffect(() => { if (session) {
+        void refresh();
+        void refreshAlerts();
+    } }, [session, refresh, refreshAlerts]);
     useEffect(() => {
         setRoomTypes([]);
         setThresholdsByType({});
@@ -216,9 +238,9 @@ export default function App() {
         const timer = window.setInterval(() => { if (session.expiresAt <= Date.now()) {
             signOut();
             return;
-        } void refresh(); }, refreshMs);
+        } void refresh(); void refreshAlerts(); }, refreshMs);
         return () => window.clearInterval(timer);
-    }, [session, refresh, signOut, refreshMs]);
+    }, [session, refresh, refreshAlerts, signOut, refreshMs]);
     function enterSession(next: Session) {
         const requested = safeNext();
         sessionStorage.setItem('sensework-session', JSON.stringify(next));
@@ -239,8 +261,8 @@ export default function App() {
     const context = useMemo<AppState | null>(() => session ? ({
         session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId, refreshMs, setRefreshMs,
         rooms, devices, gateways, statusFor, roomTypes, loading, error, notice, notify, refresh,
-        setRooms, setRoomTypes, setSites, signOut,
-    }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh, refreshMs, setRefreshMs]);
+        setRooms, setRoomTypes, setSites, signOut, openAlerts, refreshAlerts,
+    }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh, refreshMs, setRefreshMs, allOpenAlerts, refreshAlerts]);
     if (!session)
         return <AuthScreen mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
     return <Context.Provider value={context}><Shell>{renderPage(page)}</Shell></Context.Provider>;
