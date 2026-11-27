@@ -443,6 +443,7 @@ export const spanish: Record<string, string> = {
   'Closed (history)': 'Cerradas (historial)',
   'Comfort alert': 'Alerta de confort',
   'Open alert': 'Alerta abierta',
+  'Active alert': 'Alerta activa',
   'Alert acknowledged. The corrective action was saved.': 'Alerta reconocida. Se guardó la acción correctiva.',
   'This alert is no longer open. The list has been updated.': 'Esta alerta ya no está abierta. Se actualizó la lista.',
   'Alert status': 'Estado de la alerta',

@@ -82,6 +82,8 @@ export default function App() {
     const [thresholdsByType, setThresholdsByType] = useState<Record<string, Threshold[]>>({});
     const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
     const [allOpenAlerts, setOpenAlerts] = useState<Alert[] | null>(null);
+    // Alertas reconocidas: siguen activas hasta que la Edge las cierra, así que también cuentan para el semáforo.
+    const [allAckAlerts, setAckAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
@@ -130,7 +132,7 @@ export default function App() {
     const gateways = allGateways.filter(gateway => gateway.siteId === selectedSite?.id);
     const selectedRoom = allRooms.find(room => room.id === selectedRoomId);
     const openAlerts = allOpenAlerts && allOpenAlerts.filter(alert => rooms.some(room => room.id === alert.roomId));
-    const alertFor = (room: Room) => (openAlerts || []).filter(alert => alert.roomId === room.id && alert.status === 'OPEN')
+    const alertFor = (room: Room) => [...(openAlerts || []), ...allAckAlerts].filter(alert => alert.roomId === room.id && alert.status !== 'CLOSED')
         .sort((a, b) => Number(b.severity === 'critical') - Number(a.severity === 'critical'))[0];
     const statusFor = (room: Room) => roomStatus(room, thresholdsByType[room.roomTypeId || ''] || [], alertFor(room));
     const openRoom = (room: Room) => navigate(session?.role === 'MEMBER' ? 'member-detail' : 'room-detail', room.id);
@@ -147,6 +149,7 @@ export default function App() {
         setGateways([]);
         setThresholdsByType({});
         setOpenAlerts(null);
+        setAckAlerts([]);
         setSelectedSiteId('');
         setSelectedRoomId(undefined);
         setLoading(false);
@@ -202,8 +205,11 @@ export default function App() {
         if (!session || session.role !== 'ADMIN')
             return;
         try {
-            const alerts = await alertingApi.alerts(session.token, { status: 'OPEN' });
-            if (activeToken.current === session.token) setOpenAlerts(alerts);
+            const [alerts, acknowledged] = await Promise.all([
+                alertingApi.alerts(session.token, { status: 'OPEN' }),
+                alertingApi.alerts(session.token, { status: 'ACKNOWLEDGED' }),
+            ]);
+            if (activeToken.current === session.token) { setOpenAlerts(alerts); setAckAlerts(acknowledged); }
         }
         catch {
             if (activeToken.current === session.token) setOpenAlerts(null);
