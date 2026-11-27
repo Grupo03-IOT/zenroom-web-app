@@ -28,8 +28,19 @@ export function hasRecentReading(room: Room): boolean {
   return Number.isFinite(age) && age >= -60000 && age <= 5 * 60000
 }
 type RoomThreshold = { metric: string; warnValue: number; criticalValue: number | null; enabled: boolean }
-// El estado depende de los umbrales configurados en Cloud para el tipo de sala.
-export function roomStatus(room: Room, thresholds: readonly RoomThreshold[]): RoomStatus {
+// Una alerta abierta fija un piso: critical -> bad; info/warning -> moderate.
+export type AlertFloor = { severity: string } | null | undefined
+const rank: Record<RoomStatus, number> = { 'no-data': 0, optimal: 1, moderate: 2, bad: 3 }
+function withAlertFloor(status: RoomStatus, alert: AlertFloor): RoomStatus {
+  if (!alert) return status
+  const floor: RoomStatus = alert.severity === 'critical' ? 'bad' : 'moderate'
+  return rank[floor] > rank[status] ? floor : status
+}
+// El estado depende de los umbrales configurados en Cloud para el tipo de sala y de la alerta abierta de la sala.
+export function roomStatus(room: Room, thresholds: readonly RoomThreshold[], openAlert?: AlertFloor): RoomStatus {
+  return withAlertFloor(thresholdStatus(room, thresholds), openAlert)
+}
+function thresholdStatus(room: Room, thresholds: readonly RoomThreshold[]): RoomStatus {
   if (!room.latest || !hasRecentReading(room)) return 'no-data'
   const values: Record<string, number | null> = { laeq: room.latest.laeq, ppd: room.latest.ppd, temp_c: room.latest.tempC, occupied_pct: room.latest.occupiedPct }
   const applicable = thresholds.filter(level => level.enabled && values[level.metric] != null)
