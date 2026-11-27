@@ -14,6 +14,7 @@ export const discomfortApi = {
     category: filters.category,
     from: filters.from,
     to: filters.to,
+    discrepancy: filters.discrepancyOnly ? true : undefined,
   }), { signal }, token),
   mine: (token: string, signal?: AbortSignal) => request<DiscomfortReport[]>('/api/v1/discomfort-reports/mine', { signal }, token),
   /** ADMIN: cuántos reportes de cada motivo tiene cada sala en el rango. */

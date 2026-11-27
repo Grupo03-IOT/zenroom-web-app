@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Activity, Bell, CircleCheck, CloudOff, Copy, DoorOpen, Info, Plus, Radio, Settings2, Thermometer, TriangleAlert, Users, Volume2 } from 'lucide-react';
 import { useApp } from '../App';
 import { tr, useLanguage } from '../../shared/i18n/i18n';
-import { dateTime } from '../../shared/format/dates';
+import { dateTime, decimal } from '../../shared/format/dates';
 import { alertRoomName, ruleLabel } from './AlertsScreen';
 import { DiscomfortReportsPanel } from './DiscomfortScreens';
 import { Card, Empty, Kpi, StatusBadge, Unavailable } from '../components/Ui';
@@ -82,40 +82,60 @@ export function AdminRooms() {
     {addingSite && <div className="modal-backdrop"><form className="card modal" onSubmit={addSite}><h2>{tr("Add site")}</h2><label>{tr("Name")}<input value={newSite.name} onChange={e => setNewSite({ ...newSite, name: e.target.value })} required/></label><label>{tr("Code")}<input value={newSite.code} onChange={e => setNewSite({ ...newSite, code: e.target.value })} required/></label><label>{tr("Address")}<input value={newSite.address} onChange={e => setNewSite({ ...newSite, address: e.target.value })}/></label><div className="button-row"><button type="button" className="button outline" onClick={() => setAddingSite(false)}>{tr("Cancel")}</button><button className="button primary">{tr("Add site")}</button></div></form></div>}
   </>;
 }
+type RangeKey = '1h' | '24h' | '7d' | 'custom';
+const rangeHours: Record<Exclude<RangeKey, 'custom'>, number> = { '1h': 1, '24h': 24, '7d': 168 };
+const rangeLabels: Record<RangeKey, string> = { '1h': 'Last available hour', '24h': 'Last 24 hours', '7d': 'Last 7 days', custom: 'Custom range' };
+const rangeButtons: Record<RangeKey, string> = { '1h': '1 hour', '24h': '24 hours', '7d': '7 days', custom: 'Custom' };
 export function RoomDetail({ member }: {
     member: boolean;
 }) {
     const { selectedRoom: room, devices, session, statusFor, alertFor, navigate, notify } = useApp();
+    const { language } = useLanguage();
     const [readings, setReadings] = useState<Reading[]>([]);
     const [metric, setMetric] = useState<'noise' | 'temperature' | 'humidity' | 'occupancy'>('noise');
+    const [range, setRange] = useState<RangeKey>('1h');
+    const [customFrom, setCustomFrom] = useState('');
+    const [customTo, setCustomTo] = useState('');
+    const [thresholds, setThresholds] = useState<Threshold[]>([]);
+    const rangeInvalid = range === 'custom' && (!customFrom || !customTo || customFrom >= customTo);
     useEffect(() => {
         setReadings([]);
-        if (!room) return;
+        if (!room || rangeInvalid) return;
 
         let cancelled = false;
-        // Conserva visible la última hora registrada cuando el dispositivo está desconectado.
-        const to = new Date(new Date(room.latest?.ts || Date.now()).getTime() + 60000);
-        const from = new Date(to.getTime() - 3600000);
+        // Conserva visible el último tramo registrado cuando el dispositivo está desconectado.
+        const to = range === 'custom' ? new Date(customTo) : new Date(new Date(room.latest?.ts || Date.now()).getTime() + 60000);
+        const from = range === 'custom' ? new Date(customFrom) : new Date(to.getTime() - rangeHours[range] * 3600000);
         void monitoringApi.readings(session.token, room.id, from.toISOString(), to.toISOString()).then(data => {
             if (!cancelled) setReadings(data);
         }).catch(cause => { if (!cancelled) notify(cause instanceof Error ? cause.message : 'Could not load readings'); });
         return () => { cancelled = true; };
-    }, [room?.id, room?.latest?.ts, session.token]);
+    }, [room?.id, room?.latest?.ts, session.token, range, customFrom, customTo, rangeInvalid]);
+    useEffect(() => {
+        setThresholds([]);
+        if (member || !room?.roomTypeId) return;
+        let cancelled = false;
+        void alertingApi.thresholds(session.token, room.roomTypeId).then(data => { if (!cancelled) setThresholds(data); }).catch(() => { });
+        return () => { cancelled = true; };
+    }, [room?.roomTypeId, session.token, member]);
     if (!room)
         return <Empty title="Select a room" detail="Open a room from the directory." action=<button className="button primary" onClick={() => navigate(member ? 'member-rooms' : 'rooms')}>{tr("View rooms")}</button>/>;
     const status = statusFor(room);
     const noise = noiseReading(room.latest);
     const values = readings.map(item => metric === 'noise' ? (noise.potentiometer ? item.sensors?.potentiometer : item.acoustic?.laeq) : metric === 'temperature' ? item.climate?.tempC : metric === 'humidity' ? item.climate?.rhPct : item.occupancy?.occupiedPct).filter((item): item is number => typeof item === 'number');
-    const high = Math.max(...values, 1);
-    const low = Math.min(...values, 0);
+    const thresholdMetric = metric === 'noise' ? (noise.potentiometer ? undefined : 'laeq') : metric === 'temperature' ? 'temp_c' : metric === 'occupancy' ? 'occupied_pct' : undefined;
+    const threshold = thresholdMetric ? thresholds.find(item => item.metric === thresholdMetric && item.enabled) : undefined;
+    const high = Math.max(...values, threshold?.warnValue ?? 1, 1);
+    const low = Math.min(...values, threshold?.warnValue ?? 0, 0);
     const spread = Math.max(1, high - low);
-    const points = values.map((value, i) => `${(i / Math.max(1, values.length - 1)) * 100},${90 - ((value - low) / spread) * 65}`).join(' ');
+    const yOf = (value: number) => 90 - ((value - low) / spread) * 65;
+    const points = values.map((value, i) => `${(i / Math.max(1, values.length - 1)) * 100},${yOf(value)}`).join(' ');
     return <><div className="detail-heading"><div><button className="text-link" onClick={() => navigate(member ? 'member-rooms' : 'rooms')}>{tr("\u2190 Rooms")}</button><h2>{room.displayName}</h2><p>{tr("Rooms / Floor ")}{room.floor || '—'} / {room.displayName}{tr(" \u00B7 capacity ")}{room.capacity ?? '—'}</p></div>{member ? <button className="button primary" onClick={() => navigate('member-report')}>{tr("Report discomfort")}</button> : <div className="button-group"><button className="button outline" onClick={() => navigate('thresholds')}>{tr("Edit thresholds")}</button><button className="button primary" onClick={() => navigate('reports')}>{tr("Report")}</button></div>}</div>
     <div className="status-line"><StatusBadge status={status}/><span>{tr("Last reading ")}{room.latest ? new Date(room.latest.ts).toLocaleString() : tr('unavailable')}</span>{alertFor(room) && <span>{tr('Active alert')}: {ruleLabel(alertFor(room)!.rule)}</span>}</div>
     {room.latest && !hasRecentReading(room) && <Unavailable message="These are historical readings. The room has not reported in the last five minutes."/>}
     <div className="kpi-grid detail-kpis"><Kpi icon=<Volume2 /> label={noise.label} value={fmt(noise.value)} suffix={noise.unit} status={noise.potentiometer ? undefined : status}/><Kpi icon=<Thermometer /> label="Temperature" value={fmt(room.latest?.tempC)} suffix="°C"/><Kpi icon=<Activity /> label="Humidity" value={fmt(room.latest?.rhPct)} suffix="%"/><Kpi icon=<Users /> label="Presence" value={hasRecentReading(room) && room.latest?.occupiedPct != null ? tr(room.latest.occupiedPct > 50 ? 'Occupied' : 'Free') : '—'} suffix={room.latest?.occupiedPct == null ? '%' : `${Math.round(room.latest.occupiedPct)} %`}/></div>
     <SensorReadings sensors={room.latest?.sensors}/>
-    <div className="content-with-aside wide"><Card><div className="card-header"><h2>{metric === 'noise' ? `${tr(noise.label)} (${noise.unit})` : tr(metric)} · {tr('Last available hour')}</h2><div className="button-group">{!member && (['noise', 'temperature', 'humidity', 'occupancy'] as const).map(item => <button key={item} className={`button small ${metric === item ? 'primary' : 'outline'}`} onClick={() => setMetric(item)}>{tr(item)}</button>)}</div></div>{values.length ? <div className="chart"><div className="chart-grid"><span>{high.toFixed(0)}</span><span>{((high + low) / 2).toFixed(0)}</span><span>{low.toFixed(0)}</span></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={`${tr(metric)} ${tr('trend')}`}><polyline points={points} fill="none" stroke="#2e86c1" strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg></div> : <Empty title="No recent data" detail="The room has not reported readings in this period."/>}</Card><div className="aside-stack">{!member && room.latest?.forecast && room.latest.forecast.probability >= 0.85 && <Card><div className="forecast-warning" role="status">{tr('Early temperature warning')}: {Math.round(room.latest.forecast.probability * 100)}% · {room.latest.forecast.horizonMin} {tr('min forecast')}</div></Card>}<Card><h2>{tr("Door indicator")}</h2><p className="muted">{tr("The light at the door shows the room status.")}</p><div className="inline-note">{tr("Auto \u00B7 follows comfort status")}</div>{!member && <Unavailable message="Indicator commands are not exposed by Cloud API."/>}</Card>{!member && <Card><h2>{tr("Device connectivity")}</h2><>{devices.filter(device => device.roomId === room.id).map(device => <p key={device.id}>{device.code} · {tr(device.silent ? 'Offline' : 'Online')} · {tr('Lost batches')}: {device.lostBatches}</p>)}{!devices.some(device => device.roomId === room.id) && <p className="muted">{tr('No devices registered for this room.')}</p>}</></Card>}</div></div>
+    <div className="content-with-aside wide"><Card><div className="card-header"><h2>{metric === 'noise' ? `${tr(noise.label)} (${noise.unit})` : tr(metric)} · {tr(rangeLabels[range])}</h2><div className="button-group">{!member && (['noise', 'temperature', 'humidity', 'occupancy'] as const).map(item => <button key={item} className={`button small ${metric === item ? 'primary' : 'outline'}`} onClick={() => setMetric(item)}>{tr(item)}</button>)}</div></div>{!member && <div className="toolbar filters-bar range-bar" role="group" aria-label={tr('Time range')} data-testid="range-selector"><div className="button-group">{(Object.keys(rangeLabels) as RangeKey[]).map(item => <button key={item} type="button" className={`button small ${range === item ? 'primary' : 'outline'}`} aria-pressed={range === item} onClick={() => setRange(item)} data-testid={`range-${item}`}>{tr(rangeButtons[item])}</button>)}</div>{range === 'custom' && <><label>{tr('From')}<input type="datetime-local" value={customFrom} max={customTo || undefined} onChange={event => setCustomFrom(event.target.value)} data-testid="range-from"/></label><label>{tr('To')}<input type="datetime-local" value={customTo} min={customFrom || undefined} onChange={event => setCustomTo(event.target.value)} data-testid="range-to"/></label></>}</div>}{rangeInvalid && (customFrom && customTo ? <div className="warning-banner" role="alert" data-testid="range-invalid">{tr('The start must be before the end.')}</div> : <p className="muted" role="status">{tr('Choose the start and the end of the range.')}</p>)}{values.length ? <div className="chart"><div className="chart-grid"><span>{high.toFixed(0)}</span><span>{((high + low) / 2).toFixed(0)}</span><span>{low.toFixed(0)}</span></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={`${tr(metric)} ${tr('trend')}`}>{threshold && <line x1="0" x2="100" y1={yOf(threshold.warnValue)} y2={yOf(threshold.warnValue)} stroke="#c0392b" strokeWidth="1.5" strokeDasharray="4 3" vectorEffect="non-scaling-stroke"/>}<polyline points={points} fill="none" stroke="#2e86c1" strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg></div> : rangeInvalid ? null : <Empty title="No recent data" detail="The room has not reported readings in this period."/>}{values.length > 0 && readings.length > 0 && <div className="chart-x"><span>{dateTime(readings[0].ts, language)}</span><span>{dateTime(readings[readings.length - 1].ts, language)}</span></div>}{threshold && values.length > 0 && <p className="muted threshold-legend" data-testid="threshold-legend"><span className="threshold-swatch" aria-hidden="true"/>{tr('Warning threshold')}: {fmt(threshold.warnValue)} {metricLabels[thresholdMetric!]?.[1]}</p>}</Card><div className="aside-stack">{!member && room.latest?.forecast && room.latest.forecast.probability >= 0.85 && <Card><div className="forecast-warning" role="status">{tr('Early temperature warning')}: {Math.round(room.latest.forecast.probability * 100)}% · {room.latest.forecast.horizonMin} {tr('min forecast')}</div></Card>}<Card><h2>{tr("Door indicator")}</h2><p className="muted">{tr("The light at the door shows the room status.")}</p><div className="inline-note">{tr("Auto \u00B7 follows comfort status")}</div>{!member && <Unavailable message="Indicator commands are not exposed by Cloud API."/>}</Card>{!member && <Card><h2>{tr("Device connectivity")}</h2><>{devices.filter(device => device.roomId === room.id).map(device => <p key={device.id}>{device.code} · {tr(device.silent ? 'Offline' : 'Online')} · {tr('Lost batches')}: {device.lostBatches}</p>)}{!devices.some(device => device.roomId === room.id) && <p className="muted">{tr('No devices registered for this room.')}</p>}</></Card>}</div></div>
   </>;
 }
 // El estado silent llega calculado por Cloud a partir del último lote del ESP32.
@@ -173,25 +193,60 @@ export function Thresholds() {
     } }
     return <><div className="toolbar"><div className="button-group">{roomTypes.map(type => <button key={type.id} className={`button ${current === type.id ? 'primary' : 'outline'}`} onClick={() => setTypeId(type.id)}>{type.displayName}</button>)}</div><label>{tr("Metric")}<select value={newMetric} onChange={event => setNewMetric(event.target.value)} disabled={!current}><option value="">{tr("Select a metric")}</option>{Object.entries(metricLabels).filter(([metric]) => !items.some(item => item.metric === metric)).map(([metric, labels]) => <option key={metric} value={metric}>{tr(labels[0])}</option>)}</select></label><button className="button outline" disabled={!current || !newMetric} onClick={() => { setItems(old => [...old, { metric: newMetric, warnValue: 0, criticalValue: null, sustainedMinutes: 1, enabled: true }]); setNewMetric(''); }}>{tr("Add metric")}</button><div className="toolbar-spacer"/><button className="button outline" onClick={() => setItems(original.map(item => ({ ...item })))}>{tr("Discard")}</button><button className="button primary" disabled={!items.length || busy || invalid} onClick={save}>{tr("Save thresholds")}</button></div>{invalid && <div className="warning-banner"><TriangleAlert />{tr("Warning must be below critical. Sustained minutes must be a non-negative integer.")}</div>}{items.length ? <Card className="table-card"><div className="table-scroll"><table><thead><tr><th>{tr("Metric")}</th><th>{tr("Unit")}</th><th>{tr("Warning")}</th><th>{tr("Critical")}</th><th>{tr("Sustained (min)")}</th></tr></thead><tbody>{items.map((item, i) => <tr key={item.metric}><td><strong>{tr(metricLabels[item.metric]?.[0] || item.metric)}</strong></td><td>{metricLabels[item.metric]?.[1] || '—'}</td><td><input className="table-input" type="number" value={item.warnValue} onChange={event => update(i, 'warnValue', Number(event.target.value))}/></td><td><input className="table-input" type="number" value={item.criticalValue ?? ''} onChange={event => update(i, 'criticalValue', event.target.value === '' ? null : Number(event.target.value))}/></td><td><input className="table-input" type="number" min="0" step="1" value={item.sustainedMinutes} onChange={event => update(i, 'sustainedMinutes', Number(event.target.value))}/></td></tr>)}</tbody></table></div></Card> : <Empty title="No thresholds configured" detail="The selected room type has no thresholds yet. The Cloud API can save a new metric once you configure it."/>}<Card className="help-card"><h2><Info />{tr(" How alerts work")}</h2><p>{tr("An alert opens when a value stays above its threshold for the sustained minutes, and closes when the room returns to normal. Edge devices download the new values, so alerts keep working without internet. The temperature warning level is also sent to the device of each room as its forecast limit.")}</p></Card></>;
 }
+interface ThresholdComparison { roomId: string; name: string; noiseLimit?: number; noiseMinutes: number; noisePct: number | null; tempLimit?: number; tempMinutes: number; tempPct: number | null }
+function ThresholdComparisonTable({ items }: { items: ThresholdComparison[] }) {
+    const { language } = useLanguage();
+    const cell = (limit: number | undefined, minutes: number, pct: number | null) => limit == null || pct == null ? '—' : `${Math.round(minutes)} min · ${decimal(pct, language)} %`;
+    return <section aria-labelledby="threshold-comparison-title" className="threshold-comparison" data-testid="threshold-comparison"><h3 id="threshold-comparison-title">{tr('Comparison with thresholds')}</h3><div className="table-scroll"><table>
+        <caption className="sr-only">{tr('Comparison with thresholds')}</caption>
+        <thead><tr><th scope="col">{tr('Room')}</th><th scope="col">{tr('Noise above threshold')}</th><th scope="col">{tr('Temperature above threshold')}</th></tr></thead>
+        <tbody>{items.map(item => <tr key={item.roomId}><td><strong>{item.name}</strong></td><td>{cell(item.noiseLimit, item.noiseMinutes, item.noisePct)}{item.noiseLimit != null && <small className="cell-note">{tr('Threshold')}: {decimal(item.noiseLimit, language)} dB(A)</small>}</td><td>{cell(item.tempLimit, item.tempMinutes, item.tempPct)}{item.tempLimit != null && <small className="cell-note">{tr('Threshold')}: {decimal(item.tempLimit, language)} °C</small>}</td></tr>)}</tbody>
+    </table></div></section>;
+}
 export function Reports() {
     const { session, rooms, notify } = useApp();
     const [tab, setTab] = useState<'discomfort' | 'historical'>('historical');
     const [roomId, setRoomId] = useState('all');
     const [from, setFrom] = useState(new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
     const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+    const [comparison, setComparison] = useState<ThresholdComparison[] | null>(null);
+    useEffect(() => { setComparison(null); }, [roomId, from, to]);
     async function generate() {
         const chosen = roomId === 'all' ? rooms : rooms.filter(room => room.id === roomId);
         try {
+            const typeIds = [...new Set(chosen.map(room => room.roomTypeId).filter((id): id is string => !!id))];
+            const byType = new Map(await Promise.all(typeIds.map(async (id) => [id, await alertingApi.thresholds(session.token, id).catch(() => [] as Threshold[])] as const)));
             const series = await Promise.all(chosen.map(async (room) => ({ room, readings: await monitoringApi.readings(session.token, room.id, new Date(`${from}T00:00:00Z`).toISOString(), new Date(`${to}T23:59:59Z`).toISOString()) })));
-            const lines = ['room,room_code,timestamp,noise_dba,potentiometer_adc,temperature_c,humidity_pct,occupied_pct', ...series.flatMap(({ room, readings }) => readings.map(reading => [room.displayName, room.code, reading.ts, reading.acoustic?.laeq ?? '', reading.sensors?.potentiometer ?? '', reading.climate?.tempC ?? '', reading.climate?.rhPct ?? '', reading.occupancy?.occupiedPct ?? ''].join(',')))];
+            const summary: ThresholdComparison[] = [];
+            const rows = series.flatMap(({ room, readings }) => {
+                const limits = byType.get(room.roomTypeId ?? '') ?? [];
+                const noiseLimit = limits.find(item => item.metric === 'laeq' && item.enabled)?.warnValue;
+                const tempLimit = limits.find(item => item.metric === 'temp_c' && item.enabled)?.warnValue;
+                const above = (value: number | undefined, limit: number | undefined) => value == null || limit == null ? '' : value > limit ? 1 : 0;
+                let noiseMinutes = 0, noiseSamples = 0, tempMinutes = 0, tempSamples = 0;
+                const lines = readings.map(reading => {
+                    const minutes = (reading.periodS || 60) / 60;
+                    const noiseAbove = above(reading.acoustic?.laeq, noiseLimit);
+                    const tempAbove = above(reading.climate?.tempC, tempLimit);
+                    if (noiseAbove !== '') { noiseSamples += minutes; if (noiseAbove === 1) noiseMinutes += minutes; }
+                    if (tempAbove !== '') { tempSamples += minutes; if (tempAbove === 1) tempMinutes += minutes; }
+                    return [room.displayName, room.code, reading.ts, reading.acoustic?.laeq ?? '', reading.sensors?.potentiometer ?? '', reading.climate?.tempC ?? '', reading.climate?.rhPct ?? '', reading.occupancy?.occupiedPct ?? '', noiseLimit ?? '', noiseAbove, tempLimit ?? '', tempAbove].join(',');
+                });
+                summary.push({ roomId: room.id, name: room.displayName, noiseLimit, noiseMinutes, noisePct: noiseSamples ? 100 * noiseMinutes / noiseSamples : null, tempLimit, tempMinutes, tempPct: tempSamples ? 100 * tempMinutes / tempSamples : null });
+                return lines;
+            });
+            const pct = (value: number | null) => value == null ? '' : value.toFixed(1);
+            const trailer = ['', 'summary_room,noise_warn_threshold_dba,noise_minutes_above,noise_pct_above,temp_warn_threshold_c,temp_minutes_above,temp_pct_above', ...summary.map(item => [item.name, item.noiseLimit ?? '', item.noiseLimit == null ? '' : Math.round(item.noiseMinutes), item.noiseLimit == null ? '' : pct(item.noisePct), item.tempLimit ?? '', item.tempLimit == null ? '' : Math.round(item.tempMinutes), item.tempLimit == null ? '' : pct(item.tempPct)].join(','))];
+            const lines = ['room,room_code,timestamp,noise_dba,potentiometer_adc,temperature_c,humidity_pct,occupied_pct,noise_warn_threshold_dba,noise_above_threshold,temp_warn_threshold_c,temp_above_threshold', ...rows, ...trailer];
             download('sensework-historical-report.csv', lines.join('\n'));
+            setComparison(summary);
             notify('Historical CSV generated.');
         }
         catch (cause) {
             notify(cause instanceof Error ? cause.message : 'Could not generate report');
         }
     }
-    return <><div className="toolbar"><div className="button-group"><button className={`button ${tab === 'discomfort' ? 'primary' : 'outline'}`} aria-pressed={tab === 'discomfort'} onClick={() => setTab('discomfort')} data-testid="reports-tab-discomfort">{tr("Discomfort reports")}</button><button className={`button ${tab === 'historical' ? 'primary' : 'outline'}`} aria-pressed={tab === 'historical'} onClick={() => setTab('historical')} data-testid="reports-tab-historical">{tr("Historical reports")}</button></div></div>{tab === 'discomfort' ? <DiscomfortReportsPanel /> : <Card className="report-form"><h2>{tr("Generate historical report")}</h2><div className="form-grid"><label>{tr("Room")}<select value={roomId} onChange={event => setRoomId(event.target.value)}><option value="all">{tr("All rooms")}</option>{rooms.map(room => <option key={room.id} value={room.id}>{room.displayName}</option>)}</select></label><label>{tr("From")}<input type="date" value={from} onChange={event => setFrom(event.target.value)}/></label><label>{tr("To")}<input type="date" value={to} onChange={event => setTo(event.target.value)}/></label><label>{tr("Format")}<select value="CSV" disabled><option>{tr("CSV")}</option></select></label></div><p className="muted">{tr("Historical data is exported from the Cloud API as CSV.")}</p><button className="button primary" disabled={from > to} onClick={generate}>{tr("Generate report")}</button></Card>}</>;
+    return <><div className="toolbar"><div className="button-group"><button className={`button ${tab === 'discomfort' ? 'primary' : 'outline'}`} aria-pressed={tab === 'discomfort'} onClick={() => setTab('discomfort')} data-testid="reports-tab-discomfort">{tr("Discomfort reports")}</button><button className={`button ${tab === 'historical' ? 'primary' : 'outline'}`} aria-pressed={tab === 'historical'} onClick={() => setTab('historical')} data-testid="reports-tab-historical">{tr("Historical reports")}</button></div></div>{tab === 'discomfort' ? <DiscomfortReportsPanel /> : <Card className="report-form"><h2>{tr("Generate historical report")}</h2><div className="form-grid"><label>{tr("Room")}<select value={roomId} onChange={event => setRoomId(event.target.value)}><option value="all">{tr("All rooms")}</option>{rooms.map(room => <option key={room.id} value={room.id}>{room.displayName}</option>)}</select></label><label>{tr("From")}<input type="date" value={from} onChange={event => setFrom(event.target.value)}/></label><label>{tr("To")}<input type="date" value={to} onChange={event => setTo(event.target.value)}/></label><label>{tr("Format")}<select value="CSV" disabled><option>{tr("CSV")}</option></select></label></div><p className="muted">{tr("Historical data is exported from the Cloud API as CSV.")}</p><p className="muted">{tr("The CSV also compares each room against its warning thresholds: minutes and percentage of time above the threshold.")}</p><button className="button primary" disabled={from > to} onClick={generate}>{tr("Generate report")}</button>{comparison && <ThresholdComparisonTable items={comparison}/>}</Card>}</>;
 }
 export function Members() {
     const { session, notify } = useApp();

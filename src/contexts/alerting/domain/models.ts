@@ -17,6 +17,8 @@ export interface Alert {
   closedBy: 'AUTO' | 'MANUAL' | null
   acknowledgedAt: string | null
   acknowledgedBy: string | null
+  /** Nombre completo de quien reconoció la alerta; null si aún no la reconocen. */
+  acknowledgedByName: string | null
   correctiveAction: string | null
 }
 
