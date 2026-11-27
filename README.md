@@ -99,7 +99,7 @@ La analítica consulta `period=AAAA-MM` y abre inicialmente el mes de la última
 | Dispositivos y diagnóstico del Edge | `GET /api/v1/devices`, `GET /api/v1/edges` |
 | Crear, listar y revocar credenciales | `POST/GET /api/v1/credentials`, `DELETE /api/v1/credentials/{credentialId}` |
 | Alertas: lista con filtros y contador del encabezado | `GET /api/v1/alerts?status=OPEN\|ACKNOWLEDGED\|CLOSED&room_id=&from=&to=&has_action=true` |
-| Reconocer una alerta con su acción correctiva (3 a 500 caracteres) | `PATCH /api/v1/alerts/{id}/acknowledge` |
+| Atender una alerta con su acción correctiva (3 a 500 caracteres) | `PATCH /api/v1/alerts/{id}/acknowledge` |
 | Enviar un reporte de incomodidad (miembro) | `POST /api/v1/discomfort-reports` |
 | Mis reportes (miembro) | `GET /api/v1/discomfort-reports/mine` |
 | Reportes del local y resumen por sala (administrador) | `GET /api/v1/discomfort-reports?room_id=&category=&from=&to=`, `GET /api/v1/discomfort-reports/summary?from=&to=` |
