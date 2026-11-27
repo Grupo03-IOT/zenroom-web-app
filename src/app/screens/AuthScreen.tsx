@@ -8,13 +8,14 @@ import brandIcon from '../../shared/assets/logo-isotype.svg'
 import './AuthScreen.css'
 
 interface Props {
+  notice?: string
   mode: AuthMode
   onModeChange: (mode: AuthMode) => void
   onLogin: (email: string, password: string) => Promise<void>
   onRegister: (email: string, password: string, name: string, role: Role) => Promise<void>
 }
 
-export function AuthScreen({ mode, onModeChange, onLogin, onRegister }: Props) {
+export function AuthScreen({ notice, mode, onModeChange, onLogin, onRegister }: Props) {
   const signup = mode === 'signup'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -85,7 +86,7 @@ export function AuthScreen({ mode, onModeChange, onLogin, onRegister }: Props) {
           {registrationBlocked && <div className="auth-role-note" role="status">{tr('Cloud API currently creates member accounts only. An existing administrator must grant the administrator role.')}</div>}
         </>}
 
-        {error && <div className="auth-error" role="alert">{tr(error)}</div>}
+        {(error || (notice && !signup)) && <div className="auth-error" role="alert">{tr(error || notice || '')}</div>}
         <button className="auth-submit" disabled={busy || registrationBlocked}>{tr(busy ? 'Please wait…' : signup ? 'Create account' : 'Sign in')}<ArrowRight /></button>
 
         <div className="auth-switch">{tr(signup ? 'Already have an account?' : 'New to SenseWork?')} <button type="button" onClick={() => switchMode(!signup)}>{tr(signup ? 'Sign in' : 'Sign up')}</button></div>

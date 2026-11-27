@@ -2,20 +2,37 @@
 
 Aplicación React + TypeScript basada en los diseños web de [Figma](https://www.figma.com/design/xYSodRNszkA9kbobfyR6X2/SenseWork-%C2%B7-Applications-UX-UI-Design--TB1-?node-id=1-4&m=dev). Incluye pantallas de administrador y miembro, diseño adaptable y recursos SVG descargados del archivo de Figma.
 
-## Abrir en WebStorm
+**Aplicación publicada:** https://zenroom-web-app.vercel.app (Vercel despliega la rama `main`).
 
-1. En WebStorm, usa **File → Open** y selecciona esta carpeta `frontend-web`.
-2. Usa Node.js 20 o superior.
-3. En el terminal de WebStorm ejecuta:
+## Ejecutar en local (Run locally)
 
-   ```bash
-   npm install
-   npm run dev
-   ```
+Requisitos: Node.js 20 o superior y npm.
 
-4. Abre la dirección que imprima Vite, normalmente `http://localhost:5173`.
+```bash
+npm ci                 # instala las dependencias exactas de package-lock.json
+cp .env.example .env.local
+npm run dev            # http://127.0.0.1:5173, con /cloud dirigido a Cloud API en Azure
+```
 
-Para verificar la versión de producción: `npm run build`.
+| Comando | Uso |
+| --- | --- |
+| `npm run dev` | Desarrollo contra Cloud API desplegado en Azure. |
+| `npm run dev:local` | Desarrollo contra un Cloud API local en `http://127.0.0.1:8080` (las tres aplicaciones en la laptop). |
+| `npx tsc -b` | Comprobación de tipos. |
+| `npm run build` | Comprobación de tipos y versión de producción en `dist/`. |
+| `npm run preview` | Sirve `dist/` con el mismo proxy `/cloud`. |
+| `npm run check:api` | Comprueba contratos y consultas reales de Cloud sin modificar datos (ver más abajo). |
+
+## Variables de entorno (Environment variables)
+
+| Variable | Dónde se lee | Valor por defecto | Uso |
+| --- | --- | --- | --- |
+| `VITE_CLOUD_API_URL` | Navegador (`src/shared/api/http.ts`) | `/cloud` | Base de Cloud API. Con `/cloud` las peticiones pasan por el proxy de Vite o de Vercel. Una URL absoluta exige que Cloud permita el origen de la web (CORS). |
+| `CLOUD_PROXY_TARGET` | `vite.config.ts` (solo `dev` y `preview`) | URL de Cloud API en Azure | Cambia el destino del proxy `/cloud` sin tocar el código. `npm run dev:local` usa siempre `http://127.0.0.1:8080`. |
+| `ZENROOM_CHECK_URL` | `scripts/check-api.mjs` | `http://127.0.0.1:5173/cloud` | URL que consulta la comprobación de contratos. |
+| `ZENROOM_CHECK_EMAIL`, `ZENROOM_CHECK_PASSWORD` | `scripts/check-api.mjs` | — | Cuenta para las consultas autenticadas de la comprobación. Se definen en el terminal, nunca en archivos versionados. |
+
+Copia `.env.example` a `.env.local` (fuera de Git) y reinicia `npm run dev` después de cambiar una variable. Solo las variables con prefijo `VITE_` llegan al navegador; no pongas secretos en ellas. En Vercel el proxy está definido en `vercel.json`, así que la aplicación publicada no necesita variables.
 
 ## Direcciones de las páginas
 
@@ -45,10 +62,6 @@ El token de usuario se guarda en `sessionStorage` y se envía como `Authorizatio
 
 ## Flujo de sensores
 
-Para probar **las tres aplicaciones en la laptop**, usa `npm run dev:local`.
-Este modo dirige `/cloud` a `http://127.0.0.1:8080`; `npm run dev` conserva el
-destino de Azure. Conserva `VITE_CLOUD_API_URL=/cloud` en `.env.local`.
-
 El ESP32 puede conservar el programa que imprime sus sensores por USB.
 En Edge ejecuta `python tools/serial_bridge.py --list-ports` y luego
 `python tools/serial_bridge.py --port COM5` con su puerto real. El detalle de
@@ -65,7 +78,7 @@ la web; el puente solo recibe lo que realmente imprime el dispositivo.
 
 **ESP32 → Edge API → Cloud API → aplicación web**. El navegador consulta solamente Cloud API. Las salas aparecen cuando Edge envía sus primeras lecturas y los gateways cuando envía sus primeros latidos.
 
-En el proceso Edge configura `CLOUD_URL` con la URL de Azure terminada en `/api/v1/readings`, `HEARTBEAT_URL` con `/api/v1/edges/heartbeat`, `SITE_CODE` con un código de local existente y `CLOUD_API_KEY` con una credencial emitida por Cloud. Las credenciales nuevas de la web incluyen `readings:write`, `thresholds:read` y `edges:heartbeat`. Las credenciales antiguas conservan los permisos con los que se emitieron.
+En el proceso Edge configura `CLOUD_URL` con la URL de Azure terminada en `/api/v1/readings`, `HEARTBEAT_URL` con `/api/v1/edges/heartbeat`, `SITE_CODE` con un código de local existente y `CLOUD_API_KEY` con una credencial emitida por Cloud. Las credenciales nuevas de la web incluyen `readings:write`, `thresholds:read`, `edges:heartbeat` y `alerts:write` (este último permite al Edge subir las alertas que abre y cierra). Las credenciales antiguas conservan los permisos con los que se emitieron: para que un Edge suba alertas hay que crear una clave nueva, y la pantalla de credenciales lo indica.
 
 Las pantallas filtran salas y dispositivos por local, muestran el tipo de sala devuelto por Cloud y consultan los umbrales configurados. El estado visual compara la última lectura con esos umbrales; no equivale a una alerta sostenida. Una lectura con más de cinco minutos no se presenta como confort u ocupación actuales. Su fecha y la última hora registrada siguen disponibles para consultar el historial.
 
@@ -85,8 +98,13 @@ La analítica consulta `period=AAAA-MM` y abre inicialmente el mes de la última
 | Analítica por período y exportación CSV | `GET /api/v1/insights/rooms/{roomId}?period=AAAA-MM` |
 | Dispositivos y diagnóstico del Edge | `GET /api/v1/devices`, `GET /api/v1/edges` |
 | Crear, listar y revocar credenciales | `POST/GET /api/v1/credentials`, `DELETE /api/v1/credentials/{credentialId}` |
+| Alertas: lista con filtros y contador del encabezado | `GET /api/v1/alerts?status=OPEN\|ACKNOWLEDGED\|CLOSED&room_id=&from=&to=&has_action=true` |
+| Reconocer una alerta con su acción correctiva (3 a 500 caracteres) | `PATCH /api/v1/alerts/{id}/acknowledge` |
+| Enviar un reporte de incomodidad (miembro) | `POST /api/v1/discomfort-reports` |
+| Mis reportes (miembro) | `GET /api/v1/discomfort-reports/mine` |
+| Reportes del local y resumen por sala (administrador) | `GET /api/v1/discomfort-reports?room_id=&category=&from=&to=`, `GET /api/v1/discomfort-reports/summary?from=&to=` |
 
-Las operaciones de administración requieren rol `ADMIN`; las cuentas nuevas se crean como `MEMBER`. Cloud todavía no expone invitaciones, cambios de rol o activación de cuentas, reportes de incomodidad, gestión de alertas locales ni órdenes al indicador de puerta. Esas acciones permanecen deshabilitadas en la aplicación. Las pantallas legales requieren el texto aprobado del equipo antes de publicarse.
+Las operaciones de administración requieren rol `ADMIN`; las cuentas nuevas se crean como `MEMBER`. Cloud todavía no expone invitaciones, cambios de rol ni órdenes al indicador de puerta. Esas acciones permanecen deshabilitadas en la aplicación. Las pantallas legales requieren el texto aprobado del equipo antes de publicarse.
 
 ## Organización del código
 
@@ -95,9 +113,10 @@ Las operaciones de administración requieren rol `ADMIN`; las cuentas nuevas se 
 | `src/app/App.tsx` | Sesión, navegación, actualización de datos y filtros por local. |
 | `src/app/screens` | Formularios y presentación de los datos de Cloud API. |
 | `src/contexts/identity` | Inicio de sesión, cuentas y credenciales de máquinas. |
-| `src/contexts/monitoring` | Modelos y consultas de salas, dispositivos, gateways y lecturas. |
-| `src/contexts/alerting` | Consulta y configuración de umbrales de Cloud. |
-| `src/contexts/insights` | Contrato de analítica y agregación diaria de lecturas. |
+| `src/contexts/monitoring` | Modelos y consultas de salas, dispositivos, gateways, lecturas y reportes de incomodidad. |
+| `src/contexts/alerting` | Umbrales, alertas (estados `OPEN`, `ACKNOWLEDGED`, `CLOSED`) y su reconocimiento. |
+| `src/contexts/insights` | Contrato de analítica, agregación diaria de lecturas y textos de cada hallazgo y veredicto. |
+| `src/app/hooks/useLoad.ts` | Carga con estados de carga, error y reintento, y recarga periódica. |
 | `src/shared/api/http.ts` | Transporte HTTP, autenticación, conversión de JSON y errores. |
 | `src/shared/i18n` | Traducciones de la interfaz. |
 | `vite.config.ts` / `vercel.json` | Proxy a Cloud en desarrollo, preview y Vercel. |
