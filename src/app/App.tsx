@@ -5,14 +5,17 @@ import { signIn, signUp } from '../contexts/identity/infrastructure/identityApi'
 import { roomStatus } from '../contexts/monitoring/domain/models';
 import type { Device, Gateway, Room, RoomStatus, RoomType, Site } from '../contexts/monitoring/domain/models';
 import { monitoringApi } from '../contexts/monitoring/infrastructure/monitoringApi';
-import type { Threshold } from '../contexts/alerting/domain/models';
+import type { Alert, Threshold } from '../contexts/alerting/domain/models';
 import { alertingApi } from '../contexts/alerting/infrastructure/alertingApi';
-import { sessionExpiredEvent } from '../shared/api/http';
+import type { SessionExpiredDetail } from '../shared/api/http';
+import { accountDisabledCode, sessionExpiredEvent } from '../shared/api/http';
 import { AuthScreen } from './screens/AuthScreen';
 import { Shell } from './components/Shell';
-import { Overview, AdminRooms, RoomDetail, Devices, Thresholds, Alerts, Reports, Members, EdgeCredentials, RoomTypes, Diagnostics } from './screens/AdminScreens';
+import { Overview, AdminRooms, RoomDetail, Devices, Thresholds, Reports, Members, EdgeCredentials, RoomTypes, Diagnostics } from './screens/AdminScreens';
+import { Alerts } from './screens/AlertsScreen';
 import { Insights } from './screens/InsightsScreen';
-import { MemberRooms, MemberReport, MemberProfile } from './screens/MemberScreens';
+import { MemberRooms, MemberProfile } from './screens/MemberScreens';
+import { MemberReport } from './screens/DiscomfortScreens';
 import { useLanguage, tr } from '../shared/i18n/i18n';
 import { canVisit, defaultPage, pathForPage, readRoute, safeNext } from './routing';
 import type { AuthMode } from './routing';
@@ -32,6 +35,8 @@ interface AppState {
     devices: Device[];
     gateways: Gateway[];
     statusFor: (room: Room) => RoomStatus;
+    /** Alerta OPEN más grave de la sala, si la hay (reutiliza openAlerts; sin petición extra). */
+    alertFor: (room: Room) => Alert | undefined;
     roomTypes: RoomType[];
     loading: boolean;
     error: string;
@@ -42,6 +47,9 @@ interface AppState {
     setRoomTypes: React.Dispatch<React.SetStateAction<RoomType[]>>;
     setSites: React.Dispatch<React.SetStateAction<Site[]>>;
     signOut: () => void;
+    /** Alertas OPEN de las salas del local elegido; null si Cloud no respondió. */
+    openAlerts: Alert[] | null;
+    refreshAlerts: () => Promise<void>;
 }
 const Context = createContext<AppState | null>(null);
 export function useApp() { const value = useContext(Context); if (!value)
@@ -59,6 +67,7 @@ catch {
 export default function App() {
     useLanguage();
     const [session, setSession] = useState<Session | null>(saved);
+    const [authNotice, setAuthNotice] = useState('');
     const [page, setPage] = useState<Page>(() => {
         const route = readRoute();
         return saved && route.page && canVisit(route.page, saved.role) ? route.page : defaultPage(saved?.role ?? 'ADMIN');
@@ -72,6 +81,9 @@ export default function App() {
     const [allGateways, setGateways] = useState<Gateway[]>([]);
     const [thresholdsByType, setThresholdsByType] = useState<Record<string, Threshold[]>>({});
     const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+    const [allOpenAlerts, setOpenAlerts] = useState<Alert[] | null>(null);
+    // Alertas reconocidas: siguen activas hasta que la Edge las cierra, así que también cuentan para el semáforo.
+    const [allAckAlerts, setAckAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
@@ -119,7 +131,10 @@ export default function App() {
     const devices = allDevices.filter(device => rooms.some(room => room.id === device.roomId));
     const gateways = allGateways.filter(gateway => gateway.siteId === selectedSite?.id);
     const selectedRoom = allRooms.find(room => room.id === selectedRoomId);
-    const statusFor = (room: Room) => roomStatus(room, thresholdsByType[room.roomTypeId || ''] || []);
+    const openAlerts = allOpenAlerts && allOpenAlerts.filter(alert => rooms.some(room => room.id === alert.roomId));
+    const alertFor = (room: Room) => [...(openAlerts || []), ...allAckAlerts].filter(alert => alert.roomId === room.id && alert.status !== 'CLOSED')
+        .sort((a, b) => Number(b.severity === 'critical') - Number(a.severity === 'critical'))[0];
+    const statusFor = (room: Room) => roomStatus(room, thresholdsByType[room.roomTypeId || ''] || [], alertFor(room));
     const openRoom = (room: Room) => navigate(session?.role === 'MEMBER' ? 'member-detail' : 'room-detail', room.id);
     const signOut = useCallback(() => {
         sessionStorage.removeItem('sensework-session');
@@ -133,6 +148,8 @@ export default function App() {
         setDevices([]);
         setGateways([]);
         setThresholdsByType({});
+        setOpenAlerts(null);
+        setAckAlerts([]);
         setSelectedSiteId('');
         setSelectedRoomId(undefined);
         setLoading(false);
@@ -141,7 +158,10 @@ export default function App() {
     }, []);
     useEffect(() => {
         const expire = (event: Event) => {
-            if ((event as CustomEvent<string>).detail === activeToken.current) signOut();
+            const detail = (event as CustomEvent<SessionExpiredDetail>).detail;
+            if (detail?.token !== activeToken.current) return;
+            signOut();
+            if (detail.code === accountDisabledCode) setAuthNotice('This account is deactivated. Contact an administrator.');
         };
         window.addEventListener(sessionExpiredEvent, expire);
         return () => window.removeEventListener(sessionExpiredEvent, expire);
@@ -180,8 +200,25 @@ export default function App() {
             if (activeToken.current === session.token) setLoading(false);
         }
     }, [session?.token, session?.role]);
-    useEffect(() => { if (session)
-        void refresh(); }, [session, refresh]);
+    // El contador de alertas abiertas se consulta aparte: si falla, no bloquea el resto de los datos.
+    const refreshAlerts = useCallback(async () => {
+        if (!session || session.role !== 'ADMIN')
+            return;
+        try {
+            const [alerts, acknowledged] = await Promise.all([
+                alertingApi.alerts(session.token, { status: 'OPEN' }),
+                alertingApi.alerts(session.token, { status: 'ACKNOWLEDGED' }),
+            ]);
+            if (activeToken.current === session.token) { setOpenAlerts(alerts); setAckAlerts(acknowledged); }
+        }
+        catch {
+            if (activeToken.current === session.token) setOpenAlerts(null);
+        }
+    }, [session?.token, session?.role]);
+    useEffect(() => { if (session) {
+        void refresh();
+        void refreshAlerts();
+    } }, [session, refresh, refreshAlerts]);
     useEffect(() => {
         setRoomTypes([]);
         setThresholdsByType({});
@@ -216,9 +253,9 @@ export default function App() {
         const timer = window.setInterval(() => { if (session.expiresAt <= Date.now()) {
             signOut();
             return;
-        } void refresh(); }, refreshMs);
+        } void refresh(); void refreshAlerts(); }, refreshMs);
         return () => window.clearInterval(timer);
-    }, [session, refresh, signOut, refreshMs]);
+    }, [session, refresh, refreshAlerts, signOut, refreshMs]);
     function enterSession(next: Session) {
         const requested = safeNext();
         sessionStorage.setItem('sensework-session', JSON.stringify(next));
@@ -227,6 +264,7 @@ export default function App() {
     }
     async function login(email: string, password: string) {
         setError('');
+        setAuthNotice('');
         enterSession(await signIn(email, password));
     }
     async function register(email: string, password: string, name: string, role: Role) {
@@ -238,11 +276,11 @@ export default function App() {
     }
     const context = useMemo<AppState | null>(() => session ? ({
         session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId, refreshMs, setRefreshMs,
-        rooms, devices, gateways, statusFor, roomTypes, loading, error, notice, notify, refresh,
-        setRooms, setRoomTypes, setSites, signOut,
-    }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh, refreshMs, setRefreshMs]);
+        rooms, devices, gateways, statusFor, alertFor, roomTypes, loading, error, notice, notify, refresh,
+        setRooms, setRoomTypes, setSites, signOut, openAlerts, refreshAlerts,
+    }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh, refreshMs, setRefreshMs, allOpenAlerts, refreshAlerts]);
     if (!session)
-        return <AuthScreen mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
+        return <AuthScreen notice={authNotice} mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
     return <Context.Provider value={context}><Shell>{renderPage(page)}</Shell></Context.Provider>;
 }
 function renderPage(page: Page): ReactNode {

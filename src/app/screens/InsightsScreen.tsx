@@ -7,7 +7,8 @@ import { monitoringApi } from '../../contexts/monitoring/infrastructure/monitori
 import { alertingApi } from '../../contexts/alerting/infrastructure/alertingApi'
 import { loadAnalytics, loadSiteRanking } from '../../contexts/insights/infrastructure/insightsApi'
 import type { SiteRoomRanking } from '../../contexts/insights/infrastructure/insightsApi'
-import type { RoomAnalytics } from '../../contexts/insights/infrastructure/insightsApi'
+import type { Measure, RoomAnalytics } from '../../contexts/insights/infrastructure/insightsApi'
+import { directionText, findingTemplate, unitText, verdictText } from '../../contexts/insights/domain/insightText'
 import { dailyTrends, metricValue } from '../../contexts/insights/domain/dailyTrends'
 import type { DailyTrend, InsightMetric } from '../../contexts/insights/domain/dailyTrends'
 import downloadIcon from '../../shared/assets/icon-download.svg'
@@ -18,6 +19,14 @@ const metrics: InsightMetric[] = ['Noise', 'Temperature', 'Presence']
 
 function dateLabel(date: string, language: 'es' | 'en') {
   return new Intl.DateTimeFormat(language === 'es' ? 'es-PE' : 'en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))
+}
+
+/** Conclusión de Insights en el idioma activo: nunca muestra la clave técnica. */
+function findingSentence(code: string, value: number, unit: string | undefined, language: 'es' | 'en') {
+  const digits = unit === 'pct_of_time' ? 1 : 2
+  const formatted = `${unit === 'degc_per_hour' && value > 0 ? '+' : ''}${number(value, language, digits)}`
+  const known = findingTemplate(code) !== findingTemplate(null)
+  return tr(findingTemplate(code)).replace('{value}', known ? formatted : `${formatted} ${tr(unitText(unit))}`.trim())
 }
 
 function number(value: number | null | undefined, language: 'es' | 'en', digits = 2) {
@@ -186,6 +195,23 @@ export function Insights() {
           <div className="insight-stat"><span>{tr('Samples')}</span><strong>{analytics ? new Intl.NumberFormat(language === 'es' ? 'es-PE' : 'en-US').format(analytics.dataQuality.receivedMinutes) : '—'} {tr('min')}</strong></div>
           {analytics && <><span className={`insight-reliability ${analytics.measures.noiseVsOccupancy.verdict === 'conclusive' ? 'reliable' : 'insufficient'}`}><i />{tr(analytics.measures.noiseVsOccupancy.verdict === 'conclusive' ? 'Enough data to be reliable' : 'Insufficient data for a reliable result.')}</span><p>{tr('Coverage')} {number(analytics.dataQuality.coveragePct, language, 1)} %</p></>}
           <p>{tr('Cloud evaluates the evidence of each result. Missing values indicate insufficient evidence.')}</p>
+        </Card>
+
+        <Card className="insights-card insights-findings" data-testid="insights-findings">
+          <h2>{tr('Findings')}</h2>
+          {!analytics ? <p className="muted">{tr(loading ? 'Loading current data…' : 'No analysis available for this period.')}</p> : <>
+            {analytics.findings.length ? <ul className="plain-list finding-list">{analytics.findings.map((finding, index) => <li key={`${finding.code}-${index}`}>{findingSentence(finding.code, finding.value, finding.unit, language)}</li>)}</ul>
+              : <p className="muted">{tr('No notable findings for this period.')}</p>}
+            <h3 className="subsection-title">{tr('Evidence by result')}</h3>
+            <dl className="evidence-list">
+              {([['Noise vs occupied time', analytics.measures.noiseVsOccupancy], ['Indoor vs outdoor temperature', analytics.measures.indoorVsOutdoor], ['Temperature trend', analytics.measures.thermalDrift]] as [string, Measure][]).map(([label, measure]) => <div key={label}>
+                <dt>{tr(label)}</dt>
+                <dd><span className={`insight-reliability ${measure.verdict === 'conclusive' ? 'reliable' : 'insufficient'}`}><i />{tr(verdictText(measure.verdict))}</span>
+                  {measure.verdict === 'conclusive' && measure.value != null && <small>{[number(measure.value, language), tr(unitText(measure.unit)), tr(directionText(measure.direction))].filter(Boolean).join(' · ')}</small>}
+                  <small>{tr('Samples')}: {measure.confidence.sampleSize}</small></dd>
+              </div>)}
+            </dl>
+          </>}
         </Card>
 
         <Card className="insights-card insights-comparison">
