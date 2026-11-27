@@ -14,6 +14,17 @@ export function withQuery(path: string, params: Record<string, string | number |
 
 const cloudBase = (import.meta.env.VITE_CLOUD_API_URL || '/cloud').replace(/\/+$/, '')
 export const sessionExpiredEvent = 'sensework-session-expired'
+export interface SessionExpiredDetail { token: string; code?: string }
+export const accountDisabledCode = 'IAM_ACCOUNT_DISABLED'
+export const invalidCredentialsCode = 'IAM_INVALID_CREDENTIALS'
+
+/** Mensaje de acceso para un error del login (400/401 de credenciales, cuenta desactivada). */
+export function loginErrorMessage(cause: unknown): string | undefined {
+  if (!(cause instanceof ApiError)) return undefined
+  if (cause.code === accountDisabledCode) return 'This account is deactivated. Contact an administrator.'
+  if (cause.code === invalidCredentialsCode || cause.status === 400 || cause.status === 401) return 'Invalid email or password.'
+  return undefined
+}
 
 function mapKeys(value: unknown, change: (key: string) => string): unknown {
   if (Array.isArray(value)) return value.map(item => mapKeys(item, change))
@@ -38,8 +49,6 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
     if (token) headers.set('Authorization', `Bearer ${token}`)
     const response = await fetch(`${cloudBase}${path}`, { ...init, headers, signal: controller.signal })
     if (!response.ok) {
-      // Una sesión rechazada vuelve al acceso; los errores de permisos conservan la sesión.
-      if (response.status === 401 && token) window.dispatchEvent(new CustomEvent(sessionExpiredEvent, { detail: token }))
       let message = `${response.status} ${response.statusText}`
       let code: string | undefined
       try {
@@ -47,6 +56,8 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
         message = body.message || body.error || body.detail || message
         code = typeof body.code === 'string' ? body.code : undefined
       } catch { /* La respuesta de error puede no contener JSON. */ }
+      // Una sesión rechazada vuelve al acceso; el login no envía token, así que su 401 nunca llega aquí.
+      if (response.status === 401 && token) window.dispatchEvent(new CustomEvent<SessionExpiredDetail>(sessionExpiredEvent, { detail: { token, code } }))
       throw new ApiError(response.status, message, code)
     }
     // La revocación de credenciales devuelve 204 y no incluye JSON.

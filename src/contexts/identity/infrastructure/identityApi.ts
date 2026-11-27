@@ -1,4 +1,4 @@
-import { patch, post, request } from '../../../shared/api/http'
+import { ApiError, loginErrorMessage, patch, post, request } from '../../../shared/api/http'
 import { sessionFromJwt } from '../domain/session'
 
 interface TokenResource { accessToken: string; tokenType: string; expiresIn: number }
@@ -6,7 +6,14 @@ export interface UserResource { id: string; email: string; displayName: string; 
 export interface EdgeCredential { id: string; code: string; active: boolean; scopes: string[]; apiKey?: string }
 
 export async function signIn(email: string, password: string) {
-  const result = await post<TokenResource>('/api/v1/auth/login', { email, password })
+  let result: TokenResource
+  try {
+    result = await post<TokenResource>('/api/v1/auth/login', { email, password })
+  } catch (cause) {
+    const message = loginErrorMessage(cause)
+    if (message && cause instanceof ApiError) throw new ApiError(cause.status, message, cause.code)
+    throw cause
+  }
   return sessionFromJwt(result.accessToken, result.expiresIn)
 }
 

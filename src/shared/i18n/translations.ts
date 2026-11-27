@@ -119,6 +119,8 @@ export const spanish: Record<string, string> = {
   'Create an account': 'Crear una cuenta',
   'By continuing you accept the': 'Al continuar aceptas los',
   'and the': 'y la',
+  'Invalid email or password.': 'Correo o contraseña incorrectos.',
+  'This account is deactivated. Contact an administrator.': 'Esta cuenta está desactivada. Contacta a un administrador.',
   'Unable to continue': 'No se pudo continuar',
   'Welcome back': 'Bienvenido de nuevo',
   'Your spaces and comfort data are waiting for you.': 'Tus espacios y datos de confort te esperan.',

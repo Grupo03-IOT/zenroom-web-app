@@ -53,9 +53,9 @@
 .summary-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px}
 .summary-total{font-size:22px;font-weight:700;color:#0f2a3d}
 .summary-total small{font-size:12px;font-weight:500;color:#5c7080}
-.summary-counts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0}
+.summary-counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px;margin:0}
 .summary-counts div{background:#f3f7fa;border-radius:6px;padding:6px 8px}
-.summary-counts dt{font-size:11px;color:#5c7080}
+.summary-counts dt{font-size:11px;color:#5c7080;overflow-wrap:anywhere;hyphens:auto}
 .summary-counts dd{margin:2px 0 0;font-weight:700}
 .reason{font-size:12px;font-weight:600;border-radius:12px;padding:3px 9px;white-space:nowrap}
 .reason-noise{background:#e8f3f9;color:#1f4a66}

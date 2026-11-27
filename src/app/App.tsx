@@ -7,7 +7,8 @@ import type { Device, Gateway, Room, RoomStatus, RoomType, Site } from '../conte
 import { monitoringApi } from '../contexts/monitoring/infrastructure/monitoringApi';
 import type { Alert, Threshold } from '../contexts/alerting/domain/models';
 import { alertingApi } from '../contexts/alerting/infrastructure/alertingApi';
-import { sessionExpiredEvent } from '../shared/api/http';
+import type { SessionExpiredDetail } from '../shared/api/http';
+import { accountDisabledCode, sessionExpiredEvent } from '../shared/api/http';
 import { AuthScreen } from './screens/AuthScreen';
 import { Shell } from './components/Shell';
 import { Overview, AdminRooms, RoomDetail, Devices, Thresholds, Reports, Members, EdgeCredentials, RoomTypes, Diagnostics } from './screens/AdminScreens';
@@ -64,6 +65,7 @@ catch {
 export default function App() {
     useLanguage();
     const [session, setSession] = useState<Session | null>(saved);
+    const [authNotice, setAuthNotice] = useState('');
     const [page, setPage] = useState<Page>(() => {
         const route = readRoute();
         return saved && route.page && canVisit(route.page, saved.role) ? route.page : defaultPage(saved?.role ?? 'ADMIN');
@@ -149,7 +151,10 @@ export default function App() {
     }, []);
     useEffect(() => {
         const expire = (event: Event) => {
-            if ((event as CustomEvent<string>).detail === activeToken.current) signOut();
+            const detail = (event as CustomEvent<SessionExpiredDetail>).detail;
+            if (detail?.token !== activeToken.current) return;
+            signOut();
+            if (detail.code === accountDisabledCode) setAuthNotice('This account is deactivated. Contact an administrator.');
         };
         window.addEventListener(sessionExpiredEvent, expire);
         return () => window.removeEventListener(sessionExpiredEvent, expire);
@@ -249,6 +254,7 @@ export default function App() {
     }
     async function login(email: string, password: string) {
         setError('');
+        setAuthNotice('');
         enterSession(await signIn(email, password));
     }
     async function register(email: string, password: string, name: string, role: Role) {
@@ -264,7 +270,7 @@ export default function App() {
         setRooms, setRoomTypes, setSites, signOut, openAlerts, refreshAlerts,
     }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh, refreshMs, setRefreshMs, allOpenAlerts, refreshAlerts]);
     if (!session)
-        return <AuthScreen mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
+        return <AuthScreen notice={authNotice} mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
     return <Context.Provider value={context}><Shell>{renderPage(page)}</Shell></Context.Provider>;
 }
 function renderPage(page: Page): ReactNode {
