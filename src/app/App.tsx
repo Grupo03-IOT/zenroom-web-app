@@ -35,6 +35,8 @@ interface AppState {
     devices: Device[];
     gateways: Gateway[];
     statusFor: (room: Room) => RoomStatus;
+    /** Alerta OPEN más grave de la sala, si la hay (reutiliza openAlerts; sin petición extra). */
+    alertFor: (room: Room) => Alert | undefined;
     roomTypes: RoomType[];
     loading: boolean;
     error: string;
@@ -128,7 +130,9 @@ export default function App() {
     const gateways = allGateways.filter(gateway => gateway.siteId === selectedSite?.id);
     const selectedRoom = allRooms.find(room => room.id === selectedRoomId);
     const openAlerts = allOpenAlerts && allOpenAlerts.filter(alert => rooms.some(room => room.id === alert.roomId));
-    const statusFor = (room: Room) => roomStatus(room, thresholdsByType[room.roomTypeId || ''] || []);
+    const alertFor = (room: Room) => (openAlerts || []).filter(alert => alert.roomId === room.id && alert.status === 'OPEN')
+        .sort((a, b) => Number(b.severity === 'critical') - Number(a.severity === 'critical'))[0];
+    const statusFor = (room: Room) => roomStatus(room, thresholdsByType[room.roomTypeId || ''] || [], alertFor(room));
     const openRoom = (room: Room) => navigate(session?.role === 'MEMBER' ? 'member-detail' : 'room-detail', room.id);
     const signOut = useCallback(() => {
         sessionStorage.removeItem('sensework-session');
@@ -266,7 +270,7 @@ export default function App() {
     }
     const context = useMemo<AppState | null>(() => session ? ({
         session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId, refreshMs, setRefreshMs,
-        rooms, devices, gateways, statusFor, roomTypes, loading, error, notice, notify, refresh,
+        rooms, devices, gateways, statusFor, alertFor, roomTypes, loading, error, notice, notify, refresh,
         setRooms, setRoomTypes, setSites, signOut, openAlerts, refreshAlerts,
     }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh, refreshMs, setRefreshMs, allOpenAlerts, refreshAlerts]);
     if (!session)
