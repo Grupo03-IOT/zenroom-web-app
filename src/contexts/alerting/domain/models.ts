@@ -45,6 +45,7 @@ export function correctiveActionProblem(text: string): 'required' | 'too-short' 
 export const alertRules: Record<string, { label: string; unit: string }> = {
   sustained_noise: { label: 'Sustained noise', unit: 'dB(A)' },
   thermal_discomfort: { label: 'Thermal discomfort', unit: '% PPD' },
+  device_offline: { label: 'Device offline', unit: '' },
 }
 
 export const alertSeverities: Record<string, string> = { info: 'Information', warning: 'Warning', critical: 'Critical' }
