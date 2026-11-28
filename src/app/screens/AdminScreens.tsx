@@ -80,7 +80,7 @@ export function AdminRooms() {
             await refresh();
         }
         catch (cause) {
-            notify(cause instanceof ApiError && cause.code === 'ROOM_NAME_DUPLICATED' ? tr('A room with this name already exists in this site.') : cause instanceof Error ? cause.message : tr('Could not create room'));
+            notify(cause instanceof ApiError && cause.code === 'MONITORING_ROOM_NAME_DUPLICATED' ? tr('A room with this name already exists in this site.') : cause instanceof Error ? cause.message : tr('Could not create room'));
         }
     }
     async function savePeople() {
@@ -234,14 +234,14 @@ function DeviceDialog({ device, token, notify, onClose, onDone }: { device?: Dev
             await onDone();
         }
         catch (cause) {
-            if (cause instanceof ApiError && cause.code === 'DEVICE_ALREADY_LINKED') {
+            if (cause instanceof ApiError && cause.code === 'MONITORING_DEVICE_ALREADY_LINKED') {
                 const nested = cause.details?.details as Record<string, unknown> | undefined;
                 const roomCode = cause.details?.currentRoomCode ?? nested?.currentRoomCode;
                 const currentId = cause.details?.currentRoomId ?? nested?.currentRoomId;
                 const name = allRooms.find(room => room.id === currentId)?.displayName || (typeof roomCode === 'string' ? roomCode : '');
                 setConflict(name || '—');
             }
-            else if (cause instanceof ApiError && cause.code === 'DEVICE_CODE_DUPLICATED') notify(tr('A device with this code already exists.'));
+            else if (cause instanceof ApiError && cause.code === 'MONITORING_DEVICE_CODE_DUPLICATED') notify(tr('A device with this code already exists.'));
             else notify(cause instanceof Error ? cause.message : tr(device ? 'Could not update device' : 'Could not register device'));
         }
         finally { setBusy(false); }
