@@ -83,8 +83,8 @@ export function Shell({ children }: {
       <nav aria-label={tr('Main navigation')}>{nav.map(item => <button key={item.page} className={`nav-link ${currentNav === item.page ? 'active' : ''}`} onClick={() => { navigate(item.page); setMenuOpen(false); }}>{item.icon}<span>{tr(item.label)}</span></button>)}</nav>
       <div className="side-footer">
         <button onClick={() => navigate('diagnostics')}><img src={helpIcon} alt=""/>{tr("Help")}</button>
-        <button onClick={() => navigate('terms')}><img src={termsIcon} alt=""/>{tr("Terms of Service")}</button>
-        <button onClick={() => navigate('privacy')}><img src={privacyIcon} alt=""/>{tr("Privacy Policy")}</button>
+        <button onClick={() => { navigate('terms'); setMenuOpen(false); }}><img src={termsIcon} alt=""/>{tr("Terms of Service")}</button>
+        <button onClick={() => { navigate('privacy'); setMenuOpen(false); }}><img src={privacyIcon} alt=""/>{tr("Privacy Policy")}</button>
       </div>
     </aside>
     {menuOpen && <button className="drawer-backdrop" onClick={() => setMenuOpen(false)} aria-label={tr("Close menu")}/>}

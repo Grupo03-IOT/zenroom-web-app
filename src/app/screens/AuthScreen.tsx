@@ -90,7 +90,8 @@ export function AuthScreen({ notice, mode, onModeChange, onLogin, onRegister }: 
         <button className="auth-submit" disabled={busy || registrationBlocked}>{tr(busy ? 'Please wait…' : signup ? 'Create account' : 'Sign in')}<ArrowRight /></button>
 
         <div className="auth-switch">{tr(signup ? 'Already have an account?' : 'New to SenseWork?')} <button type="button" onClick={() => switchMode(!signup)}>{tr(signup ? 'Sign in' : 'Sign up')}</button></div>
-        <p className="auth-legal">{tr('By continuing you accept the')} {tr('Terms of Service')} {tr('and the')} {tr('Privacy Policy')}.</p>
+        {/* New tab, so that what was typed in the form is kept. */}
+        <p className="auth-legal">{tr('By continuing you accept the')} <a href="/terms" target="_blank" rel="noopener">{tr('Terms of Service')}</a> {tr('and the')} <a href="/privacy" target="_blank" rel="noopener">{tr('Privacy Policy')}</a>.</p>
       </form>
 
       {!adminSignup && <aside className="auth-business-card">
