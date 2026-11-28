@@ -85,6 +85,8 @@ export default function App() {
     // Alertas reconocidas: siguen activas hasta que la Edge las cierra, así que también cuentan para el semáforo.
     const [allAckAlerts, setAckAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(false);
+    // Tras la primera carga, los refrescos son silenciosos: se actualiza lo mostrado sin barra de carga.
+    const hasData = useRef(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const activeToken = useRef(session?.token);
@@ -152,6 +154,7 @@ export default function App() {
         setAckAlerts([]);
         setSelectedSiteId('');
         setSelectedRoomId(undefined);
+        hasData.current = false;
         setLoading(false);
         setError('');
         setNotice('');
@@ -172,8 +175,10 @@ export default function App() {
     const refresh = useCallback(async () => {
         if (!session)
             return;
-        setLoading(true);
-        setError('');
+        if (!hasData.current) {
+            setLoading(true);
+            setError('');
+        }
         try {
             const results = await Promise.allSettled([
                 monitoringApi.sites(session.token),
@@ -187,11 +192,15 @@ export default function App() {
                 setSites(nextSites.value);
                 setSelectedSiteId(id => nextSites.value.some(site => site.id === id) ? id : nextSites.value[0]?.id || '');
             }
-            if (nextRooms.status === 'fulfilled') setRooms(nextRooms.value);
+            if (nextRooms.status === 'fulfilled') {
+                setRooms(nextRooms.value);
+                hasData.current = true;
+            }
             if (nextDevices.status === 'fulfilled') setDevices(nextDevices.value);
             if (nextGateways.status === 'fulfilled') setGateways(nextGateways.value);
             const failed = results.find(result => result.status === 'rejected');
             if (failed?.status === 'rejected') throw failed.reason;
+            setError('');
         }
         catch (cause) {
             if (activeToken.current === session.token) setError(cause instanceof Error ? cause.message : 'Could not load data');

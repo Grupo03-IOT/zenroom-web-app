@@ -98,8 +98,9 @@ export function RoomDetail({ member }: {
     const [customTo, setCustomTo] = useState('');
     const [thresholds, setThresholds] = useState<Threshold[]>([]);
     const rangeInvalid = range === 'custom' && (!customFrom || !customTo || customFrom >= customTo);
+    // La serie solo se vacía al cambiar de sala o de rango; un minuto nuevo la actualiza sin parpadeo.
+    useEffect(() => { setReadings([]); }, [room?.id, range, customFrom, customTo]);
     useEffect(() => {
-        setReadings([]);
         if (!room || rangeInvalid) return;
 
         let cancelled = false;
