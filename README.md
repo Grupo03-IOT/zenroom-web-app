@@ -42,7 +42,7 @@ Al publicar la aplicación, el servidor debe devolver `index.html` para las ruta
 
 ## Idioma
 
-El selector **ES / EN** está en la pantalla de acceso y en la barra superior de la aplicación. El español se muestra al abrirla por primera vez; la selección queda guardada en este navegador para las siguientes visitas.
+El selector **ES / EN** está en la pantalla de acceso y en la barra superior de la aplicación. El inglés (`en_US`) se muestra al abrirla por primera vez, sin importar el idioma del navegador; el español (`es_419`) se elige con el selector y la elección queda guardada en este navegador para las siguientes visitas.
 
 ## Conexión con Cloud API
 

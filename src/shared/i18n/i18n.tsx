@@ -5,13 +5,21 @@ import { spanish } from './translations'
 export type Language = 'es' | 'en'
 
 const storageKey = 'sensework-language'
+// Same text as the description meta tag in index.html.
+const description = 'Monitor noise and thermal comfort in your coworking rooms with SenseWork.'
 
 function savedLanguage(): Language {
-  try { return localStorage.getItem(storageKey) === 'en' ? 'en' : 'es' }
-  catch { return 'es' }
+  // English unless the user explicitly chose Spanish; the browser locale is ignored.
+  try { return localStorage.getItem(storageKey) === 'es' ? 'es' : 'en' }
+  catch { return 'en' }
 }
 
 let activeLanguage: Language = savedLanguage()
+
+/** Locale tag of the active language, for the document and date formatting. */
+export function localeTag(language: Language = activeLanguage): string {
+  return language === 'es' ? 'es-419' : 'en-US'
+}
 
 export function tr(value: string): string {
   if (activeLanguage === 'en') return value
@@ -36,7 +44,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     updateLanguage(next)
     try { localStorage.setItem(storageKey, next) } catch { /* Storage can be unavailable. */ }
   }
-  useEffect(() => { document.documentElement.lang = language }, [language])
+  useEffect(() => {
+    document.documentElement.lang = localeTag(language)
+    document.querySelector('meta[name="description"]')?.setAttribute('content', tr(description))
+  }, [language])
   return <LanguageContext.Provider value={{ language, setLanguage }}>{children}</LanguageContext.Provider>
 }
 

@@ -1,4 +1,5 @@
 export const spanish: Record<string, string> = {
+  'Monitor noise and thermal comfort in your coworking rooms with SenseWork.': 'Monitorea el ruido y el confort térmico de las salas de tu coworking con SenseWork.',
   'ESP32 sensors': 'Sensores del ESP32',
   'Last sensor sample': 'Última muestra de sensores',
   'Historical sensor sample': 'Muestra histórica de sensores',
