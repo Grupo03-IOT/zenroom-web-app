@@ -8,7 +8,7 @@ import { tr, useLanguage } from '../../shared/i18n/i18n'
 import type { Language } from '../../shared/i18n/i18n'
 import { ApiError } from '../../shared/api/http'
 import { dateTime, daysAgoInput, dateInput, dayEndIso, dayStartIso, decimal } from '../../shared/format/dates'
-import { categoryLabel, discomfortCategories, discomfortCommentMax } from '../../contexts/monitoring/domain/discomfort'
+import { categoryLabel, discomfortCategories, discomfortCommentMax, discrepancyReasonLabel } from '../../contexts/monitoring/domain/discomfort'
 import type { DiscomfortCategory, DiscomfortReading, DiscomfortReport } from '../../contexts/monitoring/domain/discomfort'
 import { discomfortApi, isTooFrequent } from '../../contexts/monitoring/infrastructure/discomfortApi'
 import type { Room } from '../../contexts/monitoring/domain/models'
@@ -106,11 +106,12 @@ export function DiscomfortReportsPanel() {
   const [category, setCategory] = useState<DiscomfortCategory | ''>('')
   const [from, setFrom] = useState(daysAgoInput(30))
   const [to, setTo] = useState(dateInput())
+  const [onlyDiscrepancies, setOnlyDiscrepancies] = useState(false)
   const invalidRange = !!from && !!to && from > to
   const range = { from: dayStartIso(from), to: dayEndIso(to) }
   const reports = useLoad(signal => invalidRange ? Promise.resolve<DiscomfortReport[]>([])
-    : discomfortApi.list(session.token, { roomId: roomId || undefined, category: category || undefined, ...range }, signal),
-  [session.token, roomId, category, from, to, invalidRange], refreshMs)
+    : discomfortApi.list(session.token, { roomId: roomId || undefined, category: category || undefined, discrepancyOnly: onlyDiscrepancies, ...range }, signal),
+  [session.token, roomId, category, from, to, invalidRange, onlyDiscrepancies], refreshMs)
   const summary = useLoad(signal => invalidRange ? Promise.resolve([]) : discomfortApi.summary(session.token, range, signal),
     [session.token, from, to, invalidRange], refreshMs)
   // Cloud no filtra por local: solo se muestran las salas del local elegido.
@@ -124,6 +125,7 @@ export function DiscomfortReportsPanel() {
       <label>{tr('Reason')}<select value={category} onChange={event => setCategory(event.target.value as DiscomfortCategory | '')} data-testid="discomfort-filter-category"><option value="">{tr('All reasons')}</option>{discomfortCategories.map(item => <option key={item.value} value={item.value}>{tr(item.label)}</option>)}</select></label>
       <label>{tr('From')}<input type="date" value={from} max={to || undefined} onChange={event => setFrom(event.target.value)}/></label>
       <label>{tr('To')}<input type="date" value={to} min={from || undefined} onChange={event => setTo(event.target.value)}/></label>
+      <label className="checkbox-label"><input type="checkbox" checked={onlyDiscrepancies} onChange={event => setOnlyDiscrepancies(event.target.checked)} data-testid="discomfort-filter-discrepancy"/>{tr('Only discrepancies')}</label>
     </div>
     {invalidRange && <div className="warning-banner" role="alert">{tr('The start date must be before the end date.')}</div>}
 
@@ -137,6 +139,7 @@ export function DiscomfortReportsPanel() {
               <div><dt>{tr('Too noisy')}</dt><dd>{item.noise}</dd></div>
               <div><dt>{tr('Too warm')}</dt><dd>{item.warm}</dd></div>
               <div><dt>{tr('Too cold')}</dt><dd>{item.cold}</dd></div>
+              <div className="is-discrepancy"><dt>{tr('Discrepancies')}</dt><dd data-testid="summary-discrepancies">{item.discrepancies ?? 0}</dd></div>
             </dl>
           </Card>)}</div>
         : <p className="muted">{tr('No reports in this period.')}</p>}
@@ -152,9 +155,9 @@ export function DiscomfortReportsPanel() {
             <td><span className={`reason reason-${report.category.toLowerCase()}`}>{tr(categoryLabel(report.category))}</span></td>
             <td className="wrap-cell">{report.comment || <span className="muted">—</span>}</td>
             <td>{dateTime(report.createdAt, language)}</td>
-            <td><ReadingAtMoment reading={report.reading} language={language}/></td>
+            <td><ReadingAtMoment reading={report.reading} language={language}/>{report.discrepancy && <span className="discrepancy-badge" data-testid="discrepancy-badge"><strong>{tr('Discrepancy')}</strong>{report.discrepancyReason && <small>{tr(discrepancyReasonLabel(report.discrepancyReason))}</small>}</span>}</td>
           </tr>)}</tbody>
         </table></div></Card>
-      : <Empty data-testid="discomfort-empty" title="No discomfort reports" detail={roomId || category ? 'No reports match these filters.' : 'Members can report noise or temperature problems from their app.'}/>}
+      : <Empty data-testid="discomfort-empty" title="No discomfort reports" detail={roomId || category || onlyDiscrepancies ? 'No reports match these filters.' : 'Members can report noise or temperature problems from their app.'}/>}
   </div>
 }
