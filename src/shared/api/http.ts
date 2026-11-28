@@ -1,6 +1,7 @@
 export class ApiError extends Error {
   // code es el identificador estable del catálogo de errores de Cloud (p. ej. ALERTING_ALERT_NOT_OPEN).
-  constructor(public status: number, message: string, public code?: string) { super(message) }
+  // details conserva el cuerpo del error (en camelCase) para los casos que traen datos, como DEVICE_ALREADY_LINKED.
+  constructor(public status: number, message: string, public code?: string, public details?: Record<string, unknown>) { super(message) }
 }
 
 /** Añade a la ruta los parámetros con valor; los nombres se envían tal cual (snake_case del contrato). */
@@ -51,14 +52,16 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
     if (!response.ok) {
       let message = `${response.status} ${response.statusText}`
       let code: string | undefined
+      let details: Record<string, unknown> | undefined
       try {
         const body = await response.json()
         message = body.message || body.error || body.detail || message
         code = typeof body.code === 'string' ? body.code : undefined
+        if (body && typeof body === 'object') details = toCamel(body) as Record<string, unknown>
       } catch { /* La respuesta de error puede no contener JSON. */ }
       // Una sesión rechazada vuelve al acceso; el login no envía token, así que su 401 nunca llega aquí.
       if (response.status === 401 && token) window.dispatchEvent(new CustomEvent<SessionExpiredDetail>(sessionExpiredEvent, { detail: { token, code } }))
-      throw new ApiError(response.status, message, code)
+      throw new ApiError(response.status, message, code, details)
     }
     // La revocación de credenciales devuelve 204 y no incluye JSON.
     const text = await response.text()

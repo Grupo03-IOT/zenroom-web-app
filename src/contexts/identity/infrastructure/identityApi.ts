@@ -21,6 +21,10 @@ export function signUp(email: string, password: string, displayName: string) {
   return post<UserResource>('/api/v1/users', { email, password, displayName })
 }
 
+export function signUpAdmin(email: string, password: string, displayName: string) {
+  return post<UserResource>('/api/v1/auth/sign-up/admin', { email, password, displayName })
+}
+
 // El latido permite que Cloud publique la salud y la cola de subida del Edge;
 // alerts:write le permite subir las alertas que abre y cierra (POST /api/v1/alerts/events).
 // Las credenciales emitidas antes conservan sus permisos: hay que recrearlas para subir alertas.

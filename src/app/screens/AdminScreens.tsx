@@ -7,8 +7,9 @@ import { alertRoomName, ruleLabel } from './AlertsScreen';
 import { DiscomfortReportsPanel } from './DiscomfortScreens';
 import { Card, Empty, Kpi, StatusBadge, Unavailable } from '../components/Ui';
 import { SensorReadings } from '../components/SensorReadings';
-import { hasRecentReading, noiseReading } from '../../contexts/monitoring/domain/models';
+import { hasRecentReading, noiseReading, occupancyPeople } from '../../contexts/monitoring/domain/models';
 import type { Device, Room, RoomType, Reading } from '../../contexts/monitoring/domain/models';
+import { ApiError } from '../../shared/api/http';
 import { monitoringApi } from '../../contexts/monitoring/infrastructure/monitoringApi';
 import { alertingApi } from '../../contexts/alerting/infrastructure/alertingApi';
 import type { Threshold } from '../../contexts/alerting/domain/models';
@@ -24,6 +25,8 @@ const metricLabels: Record<string, [
 ]> = { laeq: ['Noise (LAeq)', 'dB(A)'], l10: ['Peaks (L10)', 'dB(A)'], ppd: ['Discomfort (PPD)', '%'], temp_c: ['Temperature', '°C'], occupied_pct: ['Occupied time', '%'] };
 function roomTypeName(room: Room, types: RoomType[]) { return room.roomType?.displayName || types.find(type => type.id === room.roomTypeId)?.displayName || (room.classified ? tr('Room') : '—'); }
 function fmt(value: number | null | undefined, suffix = '') { return value == null ? '—' : `${Number(value.toFixed(1))}${suffix}`; }
+function peopleText(room: Room) { const people = occupancyPeople(room); return people == null ? tr('Occupancy not available') : `${people} ${tr(people === 1 ? 'person' : 'people')}`; }
+function parseCapacity(text: string): number | null | undefined { const value = text.trim(); if (!value) return undefined; const number = Number(value); return Number.isInteger(number) && number >= 1 && number <= 500 ? number : null; }
 function download(name: string, content: string, mime = 'text/csv') { const blob = new Blob([content], { type: mime }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); }
 export function Overview() {
     const { rooms, statusFor, alertFor, openRoom, navigate, openAlerts } = useApp();
@@ -35,18 +38,64 @@ export function Overview() {
     return <>
     <div className="kpi-grid four"><Kpi icon=<img src={roomKpiIcon} alt=""/> label="Rooms monitored" value={rooms.length} suffix="rooms"/><Kpi icon=<img src={okKpiIcon} alt=""/> label="Optimal rooms" value={optimal} suffix={`${tr('of')} ${rooms.length}`} status="optimal"/><Kpi icon=<img src={alertKpiIcon} alt=""/> label="Active alerts" value={openAlerts ? openAlerts.length : '—'} suffix={openAlerts ? 'open' : 'unavailable'}/><Kpi icon=<img src={occupiedKpiIcon} alt=""/> label="Rooms occupied" value={rooms.some(hasRecentReading) ? occupied : '—'} suffix={`${tr("of")} ${rooms.length}`}/></div>
     <div className="overview-grid"><Card className="heatmap"><div className="card-header"><h2>{tr("Heat map")}</h2><div className="button-group"><button className={`button small ${floor === 'all' ? 'primary' : 'outline'}`} onClick={() => setFloor('all')}>{tr("All floors")}</button>{[...new Set(rooms.map(room => room.floor || ''))].sort().map(item => <button className={`button small ${floor === item ? 'primary' : 'outline'}`} key={item} onClick={() => setFloor(item)}>{item ? <>{tr("Floor ")}{item}</> : tr("No floor assigned")}</button>)}</div></div><div className="heatmap-tiles">{shown.map(room => <button className={`room-tile tile-${statusFor(room)}`} key={room.id} onClick={() => openRoom(room)} title={alertFor(room) ? `${tr('Active alert')}: ${ruleLabel(alertFor(room)!.rule)}` : undefined}><strong>{room.displayName}</strong><span>{room.latest ? `${fmt(noiseReading(room.latest).value)} ${noiseReading(room.latest).unit} · ${fmt(room.latest.tempC)} °C · ${hasRecentReading(room) ? tr((room.latest.occupiedPct ?? 0) > 50 ? 'Occupied' : 'Free') : tr('No recent data')}` : tr('No recent reading')}</span><small>{room.latest ? new Date(room.latest.ts).toLocaleString(localeTag()) : '—'}</small>{alertFor(room) && <small>{tr('Active alert')}: {ruleLabel(alertFor(room)!.rule)}</small>}<StatusBadge status={statusFor(room)}/></button>)}</div><div className="legend"><StatusBadge status="optimal"/><StatusBadge status="moderate"/><StatusBadge status="bad"/><StatusBadge status="no-data"/></div></Card>
-      <div className="overview-side"><Card data-testid="overview-open-alerts"><h2>{tr("Rooms needing attention")}</h2>{openAlerts == null ? <p className="muted" role="status">{tr("Could not load alerts from Cloud API.")}</p> : openAlerts.length === 0 ? <p className="muted">{tr("No open alerts.")}</p> : <ul className="plain-list">{openAlerts.slice(0, 4).map(alert => <li key={alert.id}><button className="attention-row" onClick={() => navigate('alerts')}><span><strong>{alertRoomName(alert, rooms)}</strong><small>{ruleLabel(alert.rule)} · {dateTime(alert.openedAt, language)}</small></span><span className="status status-bad"><i />{tr('Open')}</span></button></li>)}</ul>}<button className="button outline full" onClick={() => navigate('alerts')}><Bell />{tr(" View all alerts")}</button></Card><Card><h2>{tr("Presence · latest reading")}</h2>{rooms.filter(room => room.latest).slice(0, 4).map(room => <div className="progress-row" key={room.id}><div><span>{room.displayName}</span><strong>{tr("Occupancy ")}{Math.round(room.latest?.occupiedPct ?? 0)} %</strong></div><div className="progress"><i style={{ width: `${room.latest?.occupiedPct ?? 0}%` }}/></div></div>)}</Card></div>
+      <div className="overview-side"><Card data-testid="overview-open-alerts"><h2>{tr("Rooms needing attention")}</h2>{openAlerts == null ? <p className="muted" role="status">{tr("Could not load alerts from Cloud API.")}</p> : openAlerts.length === 0 ? <p className="muted">{tr("No open alerts.")}</p> : <ul className="plain-list">{openAlerts.slice(0, 4).map(alert => <li key={alert.id}><button className="attention-row" onClick={() => navigate('alerts')}><span><strong>{alertRoomName(alert, rooms)}</strong><small>{ruleLabel(alert.rule)} · {dateTime(alert.openedAt, language)}</small></span><span className="status status-bad"><i />{tr('Open')}</span></button></li>)}</ul>}<button className="button outline full" onClick={() => navigate('alerts')}><Bell />{tr(" View all alerts")}</button></Card><Card><h2>{tr("Occupancy · latest reading")}</h2>{rooms.map(room => <div className="progress-row" key={room.id} data-testid="room-occupancy"><div><span>{room.displayName}</span><strong>{peopleText(room)}</strong></div></div>)}</Card></div>
     </div>
   </>;
 }
 export function AdminRooms() {
-    const { session, rooms, roomTypes, sites, selectedSite, selectSite, setRooms, setSites, navigate, notify } = useApp();
+    const { session, rooms, roomTypes, sites, selectedSite, selectSite, setRooms, setSites, navigate, notify, refresh } = useApp();
     const [classifyId, setClassifyId] = useState<string>('');
     const [typeId, setTypeId] = useState('');
     const [addingSite, setAddingSite] = useState(false);
     const [newSite, setNewSite] = useState({ code: '', name: '', address: '', timezone: 'America/Lima' });
+    const [addingRoom, setAddingRoom] = useState(false);
+    const [newRoom, setNewRoom] = useState({ siteId: '', displayName: '', roomTypeId: '', capacity: '' });
+    const [newRoomTypes, setNewRoomTypes] = useState<RoomType[]>([]);
+    const [capacityEdit, setCapacityEdit] = useState<string | null>(null);
     const unclassified = rooms.filter(room => !room.classified);
     const chosen = rooms.find(room => room.id === classifyId) || unclassified[0];
+    const capacityText = capacityEdit ?? String(chosen?.capacity ?? '');
+    useEffect(() => { setCapacityEdit(null); }, [chosen?.id]);
+    useEffect(() => {
+        if (!addingRoom || !newRoom.siteId) return;
+        let cancelled = false;
+        void monitoringApi.roomTypes(session.token, newRoom.siteId).then(types => { if (!cancelled) setNewRoomTypes(types); }).catch(() => { if (!cancelled) setNewRoomTypes([]); });
+        return () => { cancelled = true; };
+    }, [addingRoom, newRoom.siteId, session.token]);
+    function openAddRoom() {
+        setNewRoom({ siteId: selectedSite?.id || sites[0]?.id || '', displayName: '', roomTypeId: '', capacity: '' });
+        setNewRoomTypes([]);
+        setAddingRoom(true);
+    }
+    const newCapacity = parseCapacity(newRoom.capacity);
+    async function addRoom(event: React.FormEvent) {
+        event.preventDefault();
+        if (newCapacity === null) { notify(tr('Enter a whole number between 1 and 500.')); return; }
+        try {
+            const created = await monitoringApi.createRoom(session.token, { siteId: newRoom.siteId, displayName: newRoom.displayName.trim(), roomTypeId: newRoom.roomTypeId || undefined, capacity: newCapacity });
+            if (created.siteId === selectedSite?.id) setRooms(items => [...items.filter(room => room.id !== created.id), created]);
+            else selectSite(created.siteId);
+            setAddingRoom(false);
+            notify(tr('Room created.'));
+            await refresh();
+        }
+        catch (cause) {
+            notify(cause instanceof ApiError && cause.code === 'MONITORING_ROOM_NAME_DUPLICATED' ? tr('A room with this name already exists in this site.') : cause instanceof Error ? cause.message : tr('Could not create room'));
+        }
+    }
+    async function savePeople() {
+        const capacity = parseCapacity(capacityText);
+        if (!chosen || capacity == null) { notify(tr('Enter a whole number between 1 and 500.')); return; }
+        try {
+            const updated = await monitoringApi.updateRoom(session.token, chosen.id, { capacity });
+            setRooms(items => items.map(room => room.id === chosen.id ? { ...room, ...updated, latest: updated.latest ?? room.latest } : room));
+            setCapacityEdit(null);
+            notify(tr('People saved.'));
+        }
+        catch (cause) {
+            notify(cause instanceof Error ? cause.message : tr('Could not save people'));
+        }
+    }
     async function classify() {
         if (!chosen || !typeId) {
             notify('Choose a room type first.');
@@ -76,9 +125,10 @@ export function AdminRooms() {
             notify(cause instanceof Error ? cause.message : 'Could not create site');
         }
     }
-    return <><div className="toolbar"><div className="button-group">{sites.map(site => <button key={site.id} className={`button small ${selectedSite?.id === site.id ? 'primary' : 'outline'}`} onClick={() => selectSite(site.id)} disabled={selectedSite?.id === site.id}>{site.name}</button>)}</div><div className="toolbar-spacer"/><button className="button outline" onClick={() => navigate('room-types')}><Settings2 />{tr("Room types")}</button><button className="button outline" onClick={() => setAddingSite(true)}><Plus />{tr("Add site")}</button><button className="button primary" onClick={() => notify('Rooms are registered automatically when the Edge sends their first reading. Start the device or simulator, then classify it here.')}><Plus />{tr("Add room")}</button></div>
+    return <><div className="toolbar"><div className="button-group">{sites.map(site => <button key={site.id} className={`button small ${selectedSite?.id === site.id ? 'primary' : 'outline'}`} onClick={() => selectSite(site.id)} disabled={selectedSite?.id === site.id}>{site.name}</button>)}</div><div className="toolbar-spacer"/><button className="button outline" onClick={() => navigate('room-types')}><Settings2 />{tr("Room types")}</button><button className="button outline" onClick={() => setAddingSite(true)}><Plus />{tr("Add site")}</button><button className="button primary" onClick={openAddRoom} disabled={!sites.length}><Plus />{tr("Add room")}</button></div>
     {unclassified.length > 0 && <div className="warning-banner"><TriangleAlert />{unclassified.length}{tr(" rooms have no type yet, so no thresholds apply to them.")}<button className="button outline small" onClick={() => { setClassifyId(unclassified[0].id); document.getElementById('classify-card')?.scrollIntoView({ behavior: 'smooth' }); }}>{tr("Classify now")}</button></div>}
-    <div className="content-with-aside"><Card className="table-card"><div className="table-scroll"><table><thead><tr><th>{tr("Room")}</th><th>{tr("Code")}</th><th>{tr("Floor")}</th><th>{tr("Type")}</th><th>{tr("Capacity")}</th><th>{tr("Classification")}</th></tr></thead><tbody>{rooms.map(room => <tr key={room.id} onClick={() => { setClassifyId(room.id); setTypeId(room.roomTypeId || ''); }} className="clickable"><td>{room.displayName}</td><td>{room.code}</td><td>{room.floor || '—'}</td><td>{roomTypeName(room, roomTypes)}</td><td>{room.capacity ?? '—'}</td><td><span className={`status ${room.classified ? 'status-optimal' : 'status-moderate'}`}><i />{tr(room.classified ? 'Classified' : 'Unclassified')}</span></td></tr>)}</tbody></table></div></Card><Card id="classify-card"><h2>{tr("Classify room")}</h2><p className="muted">{tr("The room type defines which comfort thresholds the room uses.")}</p><label>{tr("Room")}<select value={chosen?.id || ''} onChange={e => { setClassifyId(e.target.value); setTypeId(''); }}>{rooms.map(room => <option key={room.id} value={room.id}>{room.code} · {room.displayName}</option>)}{rooms.length === 0 && <option>{tr("No unclassified rooms")}</option>}</select></label><div className="radio-list">{roomTypes.map(type => <label key={type.id}><input type="radio" name="roomtype" checked={typeId === type.id} onChange={() => setTypeId(type.id)}/>{type.displayName}</label>)}</div><div className="button-row"><button className="button outline" onClick={() => setTypeId('')}>{tr("Cancel")}</button><button className="button primary" onClick={classify} disabled={!chosen}>{tr("Save type")}</button></div></Card></div>
+    <div className="content-with-aside"><Card className="table-card"><div className="table-scroll"><table><thead><tr><th>{tr("Room")}</th><th>{tr("Code")}</th><th>{tr("Floor")}</th><th>{tr("Type")}</th><th>{tr("Capacity")}</th><th>{tr("Classification")}</th></tr></thead><tbody>{rooms.map(room => <tr key={room.id} onClick={() => { setClassifyId(room.id); setTypeId(room.roomTypeId || ''); setCapacityEdit(null); }} className="clickable"><td>{room.displayName}</td><td>{room.code}</td><td>{room.floor || '—'}</td><td>{roomTypeName(room, roomTypes)}</td><td>{room.capacity ?? '—'}</td><td><span className={`status ${room.classified ? 'status-optimal' : 'status-moderate'}`}><i />{tr(room.classified ? 'Classified' : 'Unclassified')}</span></td></tr>)}</tbody></table></div></Card><Card id="classify-card"><h2>{tr("Classify room")}</h2><p className="muted">{tr("The room type defines which comfort thresholds the room uses.")}</p><label>{tr("Room")}<select value={chosen?.id || ''} onChange={e => { setClassifyId(e.target.value); setTypeId(''); }}>{rooms.map(room => <option key={room.id} value={room.id}>{room.code} · {room.displayName}</option>)}{rooms.length === 0 && <option>{tr("No unclassified rooms")}</option>}</select></label><div className="radio-list">{roomTypes.map(type => <label key={type.id}><input type="radio" name="roomtype" checked={typeId === type.id} onChange={() => setTypeId(type.id)}/>{type.displayName}</label>)}</div><div className="button-row"><button className="button outline" onClick={() => setTypeId('')}>{tr("Cancel")}</button><button className="button primary" onClick={classify} disabled={!chosen}>{tr("Save type")}</button></div><label>{tr("People when occupied (1-500)")}<input type="number" min="1" max="500" step="1" value={capacityText} onChange={event => setCapacityEdit(event.target.value)} disabled={!chosen} data-testid="room-capacity"/></label><p className="muted">{tr("Leave empty to use 1 person.")}</p><div className="button-row"><button className="button outline" onClick={savePeople} disabled={!chosen || parseCapacity(capacityText) == null}>{tr("Save people")}</button></div></Card></div>
+    {addingRoom && <div className="modal-backdrop"><form className="card modal" onSubmit={addRoom}><h2>{tr("Add room")}</h2><label>{tr("Site")}<select value={newRoom.siteId} onChange={e => setNewRoom({ ...newRoom, siteId: e.target.value, roomTypeId: '' })} required>{sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label><label>{tr("Room name")}<input value={newRoom.displayName} onChange={e => setNewRoom({ ...newRoom, displayName: e.target.value })} maxLength={120} required/></label><label>{tr("Room type (optional)")}<select value={newRoom.roomTypeId} onChange={e => setNewRoom({ ...newRoom, roomTypeId: e.target.value })}><option value="">{tr("No type")}</option>{newRoomTypes.map(type => <option key={type.id} value={type.id}>{type.displayName}</option>)}</select></label><label>{tr("People when occupied (1-500)")}<input type="number" min="1" max="500" step="1" value={newRoom.capacity} onChange={e => setNewRoom({ ...newRoom, capacity: e.target.value })}/></label><p className="muted">{tr("Leave empty to use 1 person.")}</p><div className="button-row"><button type="button" className="button outline" onClick={() => setAddingRoom(false)}>{tr("Cancel")}</button><button className="button primary" disabled={!newRoom.siteId || !newRoom.displayName.trim() || newCapacity === null}>{tr("Add room")}</button></div></form></div>}
     {addingSite && <div className="modal-backdrop"><form className="card modal" onSubmit={addSite}><h2>{tr("Add site")}</h2><label>{tr("Name")}<input value={newSite.name} onChange={e => setNewSite({ ...newSite, name: e.target.value })} required/></label><label>{tr("Code")}<input value={newSite.code} onChange={e => setNewSite({ ...newSite, code: e.target.value })} required/></label><label>{tr("Address")}<input value={newSite.address} onChange={e => setNewSite({ ...newSite, address: e.target.value })}/></label><div className="button-row"><button type="button" className="button outline" onClick={() => setAddingSite(false)}>{tr("Cancel")}</button><button className="button primary">{tr("Add site")}</button></div></form></div>}
   </>;
 }
@@ -134,20 +184,74 @@ export function RoomDetail({ member }: {
     return <><div className="detail-heading"><div><button className="text-link" onClick={() => navigate(member ? 'member-rooms' : 'rooms')}>{tr("\u2190 Rooms")}</button><h2>{room.displayName}</h2><p>{tr("Rooms / Floor ")}{room.floor || '—'} / {room.displayName}{tr(" \u00B7 capacity ")}{room.capacity ?? '—'}</p></div>{member ? <button className="button primary" onClick={() => navigate('member-report')}>{tr("Report discomfort")}</button> : <div className="button-group"><button className="button outline" onClick={() => navigate('thresholds')}>{tr("Edit thresholds")}</button><button className="button primary" onClick={() => navigate('reports')}>{tr("Report")}</button></div>}</div>
     <div className="status-line"><StatusBadge status={status}/><span>{tr("Last reading ")}{room.latest ? new Date(room.latest.ts).toLocaleString(localeTag()) : tr('unavailable')}</span>{alertFor(room) && <span>{tr('Active alert')}: {ruleLabel(alertFor(room)!.rule)}</span>}</div>
     {room.latest && !hasRecentReading(room) && <Unavailable message="These are historical readings. The room has not reported in the last five minutes."/>}
-    <div className="kpi-grid detail-kpis"><Kpi icon=<Volume2 /> label={noise.label} value={fmt(noise.value)} suffix={noise.unit} status={noise.potentiometer ? undefined : status}/><Kpi icon=<Thermometer /> label="Temperature" value={fmt(room.latest?.tempC)} suffix="°C"/><Kpi icon=<Activity /> label="Humidity" value={fmt(room.latest?.rhPct)} suffix="%"/><Kpi icon=<Users /> label="Presence" value={hasRecentReading(room) && room.latest?.occupiedPct != null ? tr(room.latest.occupiedPct > 50 ? 'Occupied' : 'Free') : '—'} suffix={room.latest?.occupiedPct == null ? '%' : `${Math.round(room.latest.occupiedPct)} %`}/></div>
+    <div className="kpi-grid detail-kpis"><Kpi icon=<Volume2 /> label={noise.label} value={fmt(noise.value)} suffix={noise.unit} status={noise.potentiometer ? undefined : status}/><Kpi icon=<Thermometer /> label="Temperature" value={fmt(room.latest?.tempC)} suffix="°C"/><Kpi icon=<Activity /> label="Humidity" value={fmt(room.latest?.rhPct)} suffix="%"/><Kpi icon=<Users /> label="Occupancy" value={occupancyPeople(room) ?? '\u2014'} suffix={occupancyPeople(room) == null ? 'Occupancy not available' : occupancyPeople(room) === 1 ? 'person' : 'people'}/></div>
     <SensorReadings sensors={room.latest?.sensors}/>
     <div className="content-with-aside wide"><Card><div className="card-header"><h2>{metric === 'noise' ? `${tr(noise.label)} (${noise.unit})` : tr(metric)} · {tr(rangeLabels[range])}</h2><div className="button-group">{!member && (['noise', 'temperature', 'humidity', 'occupancy'] as const).map(item => <button key={item} className={`button small ${metric === item ? 'primary' : 'outline'}`} onClick={() => setMetric(item)}>{tr(item)}</button>)}</div></div>{!member && <div className="toolbar filters-bar range-bar" role="group" aria-label={tr('Time range')} data-testid="range-selector"><div className="button-group">{(Object.keys(rangeLabels) as RangeKey[]).map(item => <button key={item} type="button" className={`button small ${range === item ? 'primary' : 'outline'}`} aria-pressed={range === item} onClick={() => setRange(item)} data-testid={`range-${item}`}>{tr(rangeButtons[item])}</button>)}</div>{range === 'custom' && <><label>{tr('From')}<input type="datetime-local" value={customFrom} max={customTo || undefined} onChange={event => setCustomFrom(event.target.value)} data-testid="range-from"/></label><label>{tr('To')}<input type="datetime-local" value={customTo} min={customFrom || undefined} onChange={event => setCustomTo(event.target.value)} data-testid="range-to"/></label></>}</div>}{rangeInvalid && (customFrom && customTo ? <div className="warning-banner" role="alert" data-testid="range-invalid">{tr('The start must be before the end.')}</div> : <p className="muted" role="status">{tr('Choose the start and the end of the range.')}</p>)}{values.length ? <div className="chart"><div className="chart-grid"><span>{high.toFixed(0)}</span><span>{((high + low) / 2).toFixed(0)}</span><span>{low.toFixed(0)}</span></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={`${tr(metric)} ${tr('trend')}`}>{threshold && <line x1="0" x2="100" y1={yOf(threshold.warnValue)} y2={yOf(threshold.warnValue)} stroke="#c0392b" strokeWidth="1.5" strokeDasharray="4 3" vectorEffect="non-scaling-stroke"/>}<polyline points={points} fill="none" stroke="#2e86c1" strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg></div> : rangeInvalid ? null : <Empty title="No recent data" detail="The room has not reported readings in this period."/>}{values.length > 0 && readings.length > 0 && <div className="chart-x"><span>{dateTime(readings[0].ts, language)}</span><span>{dateTime(readings[readings.length - 1].ts, language)}</span></div>}{threshold && values.length > 0 && <p className="muted threshold-legend" data-testid="threshold-legend"><span className="threshold-swatch" aria-hidden="true"/>{tr('Warning threshold')}: {fmt(threshold.warnValue)} {metricLabels[thresholdMetric!]?.[1]}</p>}</Card><div className="aside-stack">{!member && room.latest?.forecast && room.latest.forecast.probability >= 0.85 && <Card><div className="forecast-warning" role="status">{tr('Early temperature warning')}: {Math.round(room.latest.forecast.probability * 100)}% · {room.latest.forecast.horizonMin} {tr('min forecast')}</div></Card>}<Card><h2>{tr("Door indicator")}</h2><p className="muted">{tr("The light at the door shows the room status.")}</p><div className="inline-note">{tr("Auto \u00B7 follows comfort status")}</div>{!member && <Unavailable message="Indicator commands are not exposed by Cloud API."/>}</Card>{!member && <Card><h2>{tr("Device connectivity")}</h2><>{devices.filter(device => device.roomId === room.id).map(device => <p key={device.id}>{device.code} · {tr(device.silent ? 'Offline' : 'Online')} · {tr('Lost batches')}: {device.lostBatches}</p>)}{!devices.some(device => device.roomId === room.id) && <p className="muted">{tr('No devices registered for this room.')}</p>}</></Card>}</div></div>
   </>;
 }
 // El estado silent llega calculado por Cloud a partir del último lote del ESP32.
 export function Devices() {
-    const { devices, rooms, navigate } = useApp();
+    const { devices, rooms, navigate, session, sites, notify, refresh } = useApp();
     const shown: Device[] = devices;
     const online = shown.filter(device => !device.silent).length;
+    const [editing, setEditing] = useState<Device | null>(null);
+    const [registering, setRegistering] = useState(false);
     return <><div className="kpi-grid four"><Kpi icon=<Radio /> label="Registered" value={shown.length} suffix="devices"/><Kpi icon=<CircleCheck /> label="Online" value={online} suffix="devices" status="optimal"/><Kpi icon=<CloudOff /> label="Offline" value={shown.length - online} suffix="devices"/><Kpi icon=<DoorOpen /> label="Unassigned" value={shown.filter(device => !rooms.some(room => room.id === device.roomId)).length} suffix="devices"/></div>
-    <div className="toolbar end"><button className="button outline" onClick={() => navigate('diagnostics')}><Activity />{tr('Diagnostics')}</button><button className="button outline" onClick={() => navigate('edge-credentials')}><ShieldIcon />{tr('Edge credentials')}</button></div>
-    {shown.length ? <Card className="table-card"><div className="table-scroll"><table><thead><tr><th>{tr('Device')}</th><th>{tr('Room')}</th><th>{tr('Status')}</th><th>{tr('Last seen')}</th><th>{tr('Firmware')}</th><th>{tr('Lost batches')}</th></tr></thead><tbody>{shown.map(device => <tr key={device.id}><td>{device.code}</td><td>{rooms.find(room => room.id === device.roomId)?.displayName || device.roomId}</td><td><span className={'status ' + (device.silent ? 'status-no-data' : 'status-optimal')}><i />{tr(device.silent ? 'Offline' : 'Online')}</span></td><td>{device.lastSeen ? new Date(device.lastSeen).toLocaleString(localeTag()) : '—'}</td><td>{device.fwVersion || '—'}</td><td>{device.lostBatches}</td></tr>)}</tbody></table></div></Card> : <Empty title="No devices registered" detail="Devices appear after the Edge sends their readings."/>}
+    <div className="toolbar end"><button className="button outline" onClick={() => setRegistering(true)} disabled={!sites.length}><Plus />{tr('Register device')}</button><button className="button outline" onClick={() => navigate('diagnostics')}><Activity />{tr('Diagnostics')}</button><button className="button outline" onClick={() => navigate('edge-credentials')}><ShieldIcon />{tr('Edge credentials')}</button></div>
+    {shown.length ? <Card className="table-card"><div className="table-scroll"><table><thead><tr><th>{tr('Device')}</th><th>{tr('Room')}</th><th>{tr('Status')}</th><th>{tr('Last seen')}</th><th>{tr('Firmware')}</th><th>{tr('Lost batches')}</th><th>{tr('Action')}</th></tr></thead><tbody>{shown.map(device => <tr key={device.id}><td>{device.code}</td><td>{rooms.find(room => room.id === device.roomId)?.displayName || device.roomId}</td><td><span className={'status ' + (device.silent ? 'status-no-data' : 'status-optimal')}><i />{tr(device.silent ? 'Offline' : 'Online')}</span></td><td>{device.lastSeen ? new Date(device.lastSeen).toLocaleString(localeTag()) : '—'}</td><td>{device.fwVersion || '—'}</td><td>{device.lostBatches}</td><td><button className="text-link" onClick={() => setEditing(device)}>{tr('Edit')}</button></td></tr>)}</tbody></table></div></Card> : <Empty title="No devices registered" detail="Devices appear after the Edge sends their readings."/>}
+    {editing && <DeviceDialog device={editing} onClose={() => setEditing(null)} token={session.token} notify={notify} onDone={async () => { setEditing(null); await refresh(); }}/>}
+    {registering && <DeviceDialog token={session.token} notify={notify} onClose={() => setRegistering(false)} onDone={async () => { setRegistering(false); await refresh(); }}/>}
     </>;
+}
+// Elegir local y sala; si el dispositivo ya está en otra sala, Cloud responde 409 y se pide confirmar la reasignación.
+function DeviceDialog({ device, token, notify, onClose, onDone }: { device?: Device; token: string; notify: (message: string) => void; onClose: () => void; onDone: () => Promise<void> }) {
+    const { sites, selectedSite } = useApp();
+    const [allRooms, setAllRooms] = useState<Room[]>([]);
+    const [siteId, setSiteId] = useState('');
+    const [roomId, setRoomId] = useState('');
+    const [code, setCode] = useState('');
+    const [conflict, setConflict] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
+    useEffect(() => {
+        let cancelled = false;
+        void monitoringApi.rooms(token).then(items => {
+            if (cancelled) return;
+            setAllRooms(items);
+            const current = items.find(room => room.id === device?.roomId);
+            setSiteId(current?.siteId || selectedSite?.id || sites[0]?.id || '');
+            setRoomId(current?.id || '');
+        }).catch(cause => { if (!cancelled) notify(cause instanceof Error ? cause.message : 'Could not load rooms'); });
+        return () => { cancelled = true; };
+    }, [token]);
+    const siteRooms = allRooms.filter(room => room.siteId === siteId);
+    async function save(confirm: boolean) {
+        if (!roomId) { notify(tr('Choose a room first.')); return; }
+        setBusy(true);
+        try {
+            if (device) await monitoringApi.reassignDevice(token, device.id, roomId, confirm);
+            else await monitoringApi.registerDevice(token, { code: code.trim(), roomId });
+            notify(tr(device ? 'Device updated.' : 'Device registered.'));
+            await onDone();
+        }
+        catch (cause) {
+            if (cause instanceof ApiError && cause.code === 'MONITORING_DEVICE_ALREADY_LINKED') {
+                const nested = cause.details?.details as Record<string, unknown> | undefined;
+                const roomCode = cause.details?.currentRoomCode ?? nested?.currentRoomCode;
+                const currentId = cause.details?.currentRoomId ?? nested?.currentRoomId;
+                const name = allRooms.find(room => room.id === currentId)?.displayName || (typeof roomCode === 'string' ? roomCode : '');
+                setConflict(name || '—');
+            }
+            else if (cause instanceof ApiError && cause.code === 'MONITORING_DEVICE_CODE_DUPLICATED') notify(tr('A device with this code already exists.'));
+            else notify(cause instanceof Error ? cause.message : tr(device ? 'Could not update device' : 'Could not register device'));
+        }
+        finally { setBusy(false); }
+    }
+    return <div className="modal-backdrop"><form className="card modal" onSubmit={event => { event.preventDefault(); void save(false); }}><h2>{tr(device ? 'Edit device' : 'Register device')}</h2>
+        {device ? <p className="muted">{device.code}</p> : <label>{tr('Device code')}<input value={code} onChange={event => setCode(event.target.value)} required/></label>}
+        <label>{tr('Site')}<select value={siteId} onChange={event => { setSiteId(event.target.value); setRoomId(''); setConflict(null); }}>{sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
+        <label>{tr('Room')}<select value={roomId} onChange={event => { setRoomId(event.target.value); setConflict(null); }} required><option value="">{tr('Assign room')}</option>{siteRooms.map(room => <option key={room.id} value={room.id}>{room.displayName}</option>)}</select></label>
+        {conflict != null && <div className="warning-banner" role="alert"><TriangleAlert />{tr('This device is already linked to room')} {conflict}.</div>}
+        <div className="button-row"><button type="button" className="button outline" onClick={onClose}>{tr('Cancel')}</button>{conflict != null ? <button type="button" className="button primary" disabled={busy} onClick={() => void save(true)}>{tr('Confirm reassignment')}</button> : <button className="button primary" disabled={busy || !roomId || (!device && !code.trim())}>{tr('Save')}</button>}</div></form></div>;
 }
 function ShieldIcon() { return <Settings2 />; }
 export function Thresholds() {
