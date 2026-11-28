@@ -1,0 +1,536 @@
+{
+  "terms": {
+    "en": {
+      "title": "Terms of Service",
+      "effective": "Effective date: November 2026",
+      "intro": "These terms govern the use of the ZenRoom web application, mobile application and public landing page, made by the SenseWork team.",
+      "sections": [
+        {
+          "id": "acceptance",
+          "heading": "Acceptance",
+          "body": [
+            "By creating an account, signing in or using ZenRoom you accept these terms and the Privacy Policy. If you do not accept them, do not use the service."
+          ]
+        },
+        {
+          "id": "service",
+          "heading": "About the service",
+          "body": [
+            "ZenRoom is an academic prototype built by SenseWork for an Internet of Things course at Universidad Peruana de Ciencias Aplicadas (UPC). It shows the noise and thermal comfort of coworking rooms.",
+            [
+              "It is not a commercial service.",
+              "There are no payments, subscriptions or room bookings.",
+              "Availability is not guaranteed. The service may be slow, interrupted, changed, reset or shut down, and stored data may be lost."
+            ]
+          ]
+        },
+        {
+          "id": "accounts",
+          "heading": "Accounts and roles",
+          "body": [
+            "There are two roles.",
+            [
+              "Member: checks rooms and their readings and files discomfort reports.",
+              "Administrator: manages sites, rooms, devices, comfort thresholds, alerts, reports and member accounts."
+            ],
+            "Accounts created through sign-up are member accounts. The administrator role cannot be obtained through sign-up.",
+            "Give your own information, use a password of at least 8 characters, keep it private and do not share your account. Tell the coworking administrator if you think someone else is using it.",
+            "An administrator can deactivate and reactivate a member account. A deactivated account cannot sign in, and a session that is already open stops working shortly afterwards."
+          ]
+        },
+        {
+          "id": "acceptable-use",
+          "heading": "Acceptable use",
+          "body": [
+            "You agree not to:",
+            [
+              "access accounts, data or functions that your role does not allow;",
+              "bypass or test security controls without permission from the SenseWork team;",
+              "overload the service, send automated requests in bulk or interfere with devices and their connections;",
+              "send false data or impersonate another person;",
+              "use the service for anything that is against the law."
+            ]
+          ]
+        },
+        {
+          "id": "measurements",
+          "heading": "Measurements and alerts",
+          "body": [
+            "Temperature, humidity, noise level, presence, comfort indicators, forecasts and alerts are informative.",
+            "ZenRoom is not a certified measuring instrument. In the current prototype the noise level is simulated with a potentiometer that stands in for a microphone, so noise values are illustrative.",
+            "Readings can be late, missing or wrong. Do not use them for decisions about health, safety, occupational compliance or emergencies."
+          ]
+        },
+        {
+          "id": "discomfort-reports",
+          "heading": "Discomfort reports",
+          "body": [
+            "A discomfort report says that a room is noisy, too warm or too cold, and may include a comment of up to 500 characters. The same category for the same room can be reported once every 10 minutes.",
+            "Administrators can read your reports and comments. Comments must be honest, respectful and about the room. Do not include offensive content, passwords, health information or personal data about yourself or other people."
+          ]
+        },
+        {
+          "id": "intellectual-property",
+          "heading": "Intellectual property and open-source components",
+          "body": [
+            "The ZenRoom and SenseWork names, designs, texts and source code belong to their authors. The source code is published at https://github.com/Grupo03-IOT. These terms give you no rights beyond using the service and those stated in each repository.",
+            "ZenRoom uses third-party open-source components, such as React, Flutter, Spring Boot and PostgreSQL. Each one keeps its own licence."
+          ]
+        },
+        {
+          "id": "liability",
+          "heading": "Limitation of liability",
+          "body": [
+            "The service is provided as is and as available, without warranties. To the extent permitted by Peruvian law, the SenseWork team is not liable for damage or loss resulting from the use of the service, its interruption, data loss or decisions based on its measurements and alerts. Nothing in these terms limits rights that the law does not allow to be limited."
+          ]
+        },
+        {
+          "id": "changes",
+          "heading": "Changes to these terms",
+          "body": [
+            "SenseWork may update these terms while the project evolves. The current version is the one published in the applications. If you keep using the service after a change, you accept the new version."
+          ]
+        },
+        {
+          "id": "law",
+          "heading": "Applicable law",
+          "body": [
+            "These terms are governed by the laws of the Republic of Peru."
+          ]
+        },
+        {
+          "id": "ethics",
+          "heading": "Professional ethics",
+          "body": [
+            "The SenseWork team develops ZenRoom guided by the ACM/IEEE Software Engineering Code of Ethics and Professional Practice and by the Code of Ethics of the College of Engineers of Peru (Código de Ética del Colegio de Ingenieros del Perú): acting in the public interest, being honest about what the system can and cannot do, and respecting privacy."
+          ]
+        },
+        {
+          "id": "contact",
+          "heading": "Effective date and contact",
+          "body": [
+            "These terms apply from November 2026.",
+            "For questions, contact your coworking administrator or visit the project page at https://github.com/Grupo03-IOT."
+          ]
+        }
+      ]
+    },
+    "es": {
+      "title": "Términos del servicio",
+      "effective": "Vigente desde: noviembre de 2026",
+      "intro": "Estos términos regulan el uso de la aplicación web, la aplicación móvil y la página de presentación de ZenRoom, hechas por el equipo SenseWork.",
+      "sections": [
+        {
+          "id": "acceptance",
+          "heading": "Aceptación",
+          "body": [
+            "Al crear una cuenta, iniciar sesión o usar ZenRoom aceptas estos términos y la Política de privacidad. Si no los aceptas, no uses el servicio."
+          ]
+        },
+        {
+          "id": "service",
+          "heading": "Sobre el servicio",
+          "body": [
+            "ZenRoom es un prototipo académico desarrollado por SenseWork para un curso de Internet de las Cosas de la Universidad Peruana de Ciencias Aplicadas (UPC). Muestra el confort acústico y térmico de salas de coworking.",
+            [
+              "No es un servicio comercial.",
+              "No hay pagos, suscripciones ni reservas de salas.",
+              "No se garantiza la disponibilidad. El servicio puede ir lento, interrumpirse, cambiar, reiniciarse o cerrarse, y los datos guardados pueden perderse."
+            ]
+          ]
+        },
+        {
+          "id": "accounts",
+          "heading": "Cuentas y roles",
+          "body": [
+            "Hay dos roles.",
+            [
+              "Miembro: consulta las salas y sus lecturas y envía reportes de incomodidad.",
+              "Administrador: gestiona locales, salas, dispositivos, umbrales de confort, alertas, reportes y cuentas de miembros."
+            ],
+            "Las cuentas creadas mediante el registro son de miembro. El rol de administrador no se puede obtener registrándose.",
+            "Entrega tus propios datos, usa una contraseña de al menos 8 caracteres, mantenla en privado y no compartas tu cuenta. Avisa al administrador del coworking si crees que otra persona la está usando.",
+            "Un administrador puede desactivar y reactivar una cuenta de miembro. Una cuenta desactivada no puede iniciar sesión, y una sesión ya abierta deja de funcionar poco después."
+          ]
+        },
+        {
+          "id": "acceptable-use",
+          "heading": "Uso aceptable",
+          "body": [
+            "Te comprometes a no:",
+            [
+              "acceder a cuentas, datos o funciones que tu rol no permite;",
+              "evadir o probar los controles de seguridad sin permiso del equipo SenseWork;",
+              "sobrecargar el servicio, enviar solicitudes automatizadas en masa ni interferir con los dispositivos y sus conexiones;",
+              "enviar datos falsos o suplantar a otra persona;",
+              "usar el servicio para algo contrario a la ley."
+            ]
+          ]
+        },
+        {
+          "id": "measurements",
+          "heading": "Mediciones y alertas",
+          "body": [
+            "La temperatura, la humedad, el nivel de ruido, la presencia, los indicadores de confort, los pronósticos y las alertas son informativos.",
+            "ZenRoom no es un instrumento de medición certificado. En el prototipo actual el nivel de ruido se simula con un potenciómetro que reemplaza al micrófono, por lo que los valores de ruido son ilustrativos.",
+            "Las lecturas pueden llegar tarde, faltar o estar equivocadas. No las uses para decisiones sobre salud, seguridad, cumplimiento laboral o emergencias."
+          ]
+        },
+        {
+          "id": "discomfort-reports",
+          "heading": "Reportes de incomodidad",
+          "body": [
+            "Un reporte de incomodidad indica que una sala tiene ruido, mucho calor o mucho frío, y puede incluir un comentario de hasta 500 caracteres. La misma categoría para la misma sala se puede reportar una vez cada 10 minutos.",
+            "Los administradores pueden leer tus reportes y comentarios. Los comentarios deben ser honestos, respetuosos y referirse a la sala. No incluyas contenido ofensivo, contraseñas, información de salud ni datos personales tuyos o de otras personas."
+          ]
+        },
+        {
+          "id": "intellectual-property",
+          "heading": "Propiedad intelectual y componentes de código abierto",
+          "body": [
+            "Los nombres ZenRoom y SenseWork, los diseños, los textos y el código fuente pertenecen a sus autores. El código fuente está publicado en https://github.com/Grupo03-IOT. Estos términos no te dan más derechos que el de usar el servicio y los que indique cada repositorio.",
+            "ZenRoom usa componentes de código abierto de terceros, como React, Flutter, Spring Boot y PostgreSQL. Cada uno conserva su propia licencia."
+          ]
+        },
+        {
+          "id": "liability",
+          "heading": "Limitación de responsabilidad",
+          "body": [
+            "El servicio se ofrece tal como está y según disponibilidad, sin garantías. En la medida en que lo permita la ley peruana, el equipo SenseWork no responde por daños o pérdidas derivados del uso del servicio, de su interrupción, de la pérdida de datos o de decisiones basadas en sus mediciones y alertas. Nada en estos términos limita derechos que la ley no permite limitar."
+          ]
+        },
+        {
+          "id": "changes",
+          "heading": "Cambios en estos términos",
+          "body": [
+            "SenseWork puede actualizar estos términos a medida que avance el proyecto. La versión vigente es la publicada en las aplicaciones. Si sigues usando el servicio después de un cambio, aceptas la nueva versión."
+          ]
+        },
+        {
+          "id": "law",
+          "heading": "Ley aplicable",
+          "body": [
+            "Estos términos se rigen por las leyes de la República del Perú."
+          ]
+        },
+        {
+          "id": "ethics",
+          "heading": "Ética profesional",
+          "body": [
+            "El equipo SenseWork desarrolla ZenRoom guiado por el Código de Ética y Práctica Profesional de Ingeniería de Software de ACM/IEEE y por el Código de Ética del Colegio de Ingenieros del Perú: actuar en favor del interés público, ser honesto sobre lo que el sistema puede y no puede hacer, y respetar la privacidad."
+          ]
+        },
+        {
+          "id": "contact",
+          "heading": "Vigencia y contacto",
+          "body": [
+            "Estos términos se aplican desde noviembre de 2026.",
+            "Si tienes preguntas, comunícate con el administrador de tu coworking o visita la página del proyecto en https://github.com/Grupo03-IOT."
+          ]
+        }
+      ]
+    }
+  },
+  "privacy": {
+    "en": {
+      "title": "Privacy Policy",
+      "effective": "Effective date: November 2026",
+      "intro": "This policy explains which data ZenRoom handles, what it is used for, who can see it and how you can exercise your rights.",
+      "sections": [
+        {
+          "id": "controller",
+          "heading": "Who is responsible",
+          "body": [
+            "The SenseWork team, authors of the ZenRoom academic prototype developed for a UPC course, is responsible for the data described here. You can reach the team through your coworking administrator or through the project page at https://github.com/Grupo03-IOT."
+          ]
+        },
+        {
+          "id": "data",
+          "heading": "Data we collect",
+          "body": [
+            "Account data:",
+            [
+              "email address and display name (the name you enter when you sign up);",
+              "password, stored only as a hash;",
+              "role, whether the account is active, and the dates it was created and last updated."
+            ],
+            "Room measurements:",
+            [
+              "temperature, humidity, noise level in decibels and presence (the share of time a room was occupied and the changes in occupancy), with their time;",
+              "values calculated from them, such as noise statistics, comfort indicators and temperature forecasts;",
+              "technical sensor values of the prototype device: movement, distance and the state of its potentiometer and buttons."
+            ],
+            "No audio is recorded, stored or sent. Only sound levels in decibels leave the room device. In the current prototype a potentiometer stands in for the microphone. Presence is recorded per room and does not identify who is in it.",
+            "Device data:",
+            [
+              "codes of devices and local gateways (Edge nodes), firmware or software version, last connection and delivery counters;",
+              "machine credentials: their code, permissions, status and a hash of the key."
+            ],
+            "Discomfort reports: the account that filed them, the room, the category, your optional comment, the date and, when one is recent, the latest reading of the room.",
+            "Alert acknowledgements: the account, and with it the name, of the administrator who attended the alert, the date and the corrective action written.",
+            "Demo form of the landing page: the name, work email, company, number of rooms and consent you enter are used to prepare a file that is downloaded to your device. The form does not send them to SenseWork and the service does not store them."
+          ]
+        },
+        {
+          "id": "purposes",
+          "heading": "Purposes and legal basis",
+          "body": [
+            "The data is used to create and protect your account, show room conditions, open and follow up alerts, attend to discomfort reports, produce trends and comparisons of rooms, keep devices working, and develop and evaluate the academic project.",
+            "Personal data is processed on the basis of your consent, under Peruvian Law No. 29733, the Personal Data Protection Law (Ley de Protección de Datos Personales), and its regulations. You give it when you accept this policy to create or use an account. You can withdraw it as described under Your rights.",
+            "The data is not sold and is not used for advertising."
+          ]
+        },
+        {
+          "id": "access",
+          "heading": "Who can see what",
+          "body": [
+            "Members can see sites, rooms, room types, comfort thresholds, room readings and room analytics, their own account details and their own discomfort reports. They cannot see the account list, other people's reports or alerts.",
+            "Administrators can also see:",
+            [
+              "the list of accounts with name, email, role and status, and can deactivate member accounts;",
+              "all discomfort reports, including comments and the identifier of the account that filed each one;",
+              "alerts, with who acknowledged them and the corrective action;",
+              "devices, gateways and machine credentials."
+            ],
+            "Local gateways use machine credentials limited to specific permissions. The SenseWork team operates the service and therefore has technical access to the stored data."
+          ]
+        },
+        {
+          "id": "third-parties",
+          "heading": "Third parties and hosting",
+          "body": [
+            [
+              "Microsoft Azure (Azure Container Apps, North Central US region, United States) runs the Cloud service, which stores its data in a PostgreSQL database.",
+              "Vercel hosts the web application. Requests from the web application to the Cloud service pass through Vercel.",
+              "GitHub Pages hosts the landing page, and GitHub publishes the source code and the Android installer.",
+              "The landing page loads fonts from Google Fonts and shows a video from YouTube.",
+              "Firebase App Distribution (Google) receives the email address of invited testers to send them the Android app.",
+              "OpenWeather provides the outdoor weather of Lima. No personal data is sent to it.",
+              "In simulation, the prototype room device can send room measurements through a public MQTT broker (HiveMQ). They include no account data."
+            ],
+            "These providers may process technical data, such as IP addresses, under their own policies. Some of this processing takes place outside Peru."
+          ]
+        },
+        {
+          "id": "security",
+          "heading": "Security measures",
+          "body": [
+            [
+              "The published web application and Cloud service are accessed over HTTPS.",
+              "Passwords are stored as BCrypt hashes, never as plain text.",
+              "Sign-in produces a signed token that expires, after one hour by default.",
+              "The Cloud service checks the permissions of each protected request according to the role or machine credential, and rejects deactivated accounts.",
+              "Local gateways authenticate to the Cloud service with machine credentials whose keys are stored there as hashes."
+            ],
+            "This is an academic prototype: the local link between the room device and its gateway is not encrypted, and no system is completely secure."
+          ]
+        },
+        {
+          "id": "retention",
+          "heading": "How long data is kept",
+          "body": [
+            "Data is kept while the project is active. The Cloud service does not delete it automatically. You can ask the coworking administrator to have your data deleted. The applications have no option to delete or download your data yourself, so requests are handled manually."
+          ]
+        },
+        {
+          "id": "rights",
+          "heading": "Your rights",
+          "body": [
+            "Under Law No. 29733 you have these rights:",
+            [
+              "access: to know which data about you is held and how it is used;",
+              "rectification: to correct or complete wrong or incomplete data;",
+              "cancellation: to ask for your data to be deleted;",
+              "opposition: to object to processing for a legitimate reason."
+            ],
+            "You can also withdraw your consent.",
+            "To exercise these rights, ask your coworking administrator, who will pass the request to the SenseWork team, or use the project page at https://github.com/Grupo03-IOT to ask how to contact the team. That page is public: do not post personal data there. State who you are, your account email and what you are asking for. You can also file a claim with the Peruvian National Authority for Personal Data Protection (Autoridad Nacional de Protección de Datos Personales)."
+          ]
+        },
+        {
+          "id": "local-storage",
+          "heading": "Cookies and local storage",
+          "body": [
+            "The web and mobile applications set no cookies of their own and include no advertising trackers or analytics tools.",
+            [
+              "Web, session storage: your sign-in token, email, name, role and expiry time. It is removed when you sign out or close the tab.",
+              "Web, local storage: the language and the data refresh frequency you chose.",
+              "Mobile: the sign-in session is kept only in memory and is discarded when you sign out or close the app. The language you chose is the only preference saved on the device."
+            ]
+          ]
+        },
+        {
+          "id": "minors",
+          "heading": "Minors",
+          "body": [
+            "ZenRoom is intended for adults. The applications do not ask for or verify age. A parent or guardian who believes that a minor created an account can ask the coworking administrator to have the data removed."
+          ]
+        },
+        {
+          "id": "changes",
+          "heading": "Changes to this policy",
+          "body": [
+            "This policy may be updated while the project evolves. The current version is the one published in the applications."
+          ]
+        },
+        {
+          "id": "effective",
+          "heading": "Effective date",
+          "body": [
+            "This policy applies from November 2026."
+          ]
+        }
+      ]
+    },
+    "es": {
+      "title": "Política de privacidad",
+      "effective": "Vigente desde: noviembre de 2026",
+      "intro": "Esta política explica qué datos maneja ZenRoom, para qué se usan, quién puede verlos y cómo puedes ejercer tus derechos.",
+      "sections": [
+        {
+          "id": "controller",
+          "heading": "Quién es responsable",
+          "body": [
+            "El equipo SenseWork, autor del prototipo académico ZenRoom desarrollado para un curso de la UPC, es responsable de los datos descritos aquí. Puedes comunicarte con el equipo a través del administrador de tu coworking o de la página del proyecto en https://github.com/Grupo03-IOT."
+          ]
+        },
+        {
+          "id": "data",
+          "heading": "Datos que recogemos",
+          "body": [
+            "Datos de la cuenta:",
+            [
+              "correo electrónico y nombre visible (el nombre que escribes al registrarte);",
+              "contraseña, guardada solo como hash;",
+              "rol, si la cuenta está activa y las fechas de creación y última actualización."
+            ],
+            "Mediciones de las salas:",
+            [
+              "temperatura, humedad, nivel de ruido en decibeles y presencia (la proporción de tiempo en que una sala estuvo ocupada y los cambios de ocupación), con su fecha y hora;",
+              "valores calculados a partir de ellas, como estadísticas de ruido, indicadores de confort y pronósticos de temperatura;",
+              "valores técnicos de los sensores del dispositivo prototipo: movimiento, distancia y estado de su potenciómetro y botones."
+            ],
+            "No se graba, guarda ni envía audio. Del dispositivo de la sala solo salen niveles de sonido en decibeles. En el prototipo actual un potenciómetro reemplaza al micrófono. La presencia se registra por sala y no identifica quién está en ella.",
+            "Datos de los dispositivos:",
+            [
+              "códigos de los dispositivos y de los gateways locales (nodos Edge), versión de firmware o software, última conexión y contadores de entrega;",
+              "credenciales de máquina: su código, permisos, estado y un hash de la clave."
+            ],
+            "Reportes de incomodidad: la cuenta que los envió, la sala, la categoría, tu comentario opcional, la fecha y, cuando hay una reciente, la última lectura de la sala.",
+            "Atención de alertas: la cuenta, y con ella el nombre, del administrador que atendió la alerta, la fecha y la acción correctiva escrita.",
+            "Formulario de demostración de la página de presentación: el nombre, correo de trabajo, empresa, número de salas y consentimiento que escribes se usan para preparar un archivo que se descarga en tu dispositivo. El formulario no los envía a SenseWork y el servicio no los guarda."
+          ]
+        },
+        {
+          "id": "purposes",
+          "heading": "Finalidades y base legal",
+          "body": [
+            "Los datos se usan para crear y proteger tu cuenta, mostrar las condiciones de las salas, abrir y dar seguimiento a las alertas, atender reportes de incomodidad, generar tendencias y comparaciones de salas, mantener los dispositivos en funcionamiento y desarrollar y evaluar el proyecto académico.",
+            "Los datos personales se tratan con base en tu consentimiento, según la Ley N.° 29733, Ley de Protección de Datos Personales del Perú, y su reglamento. Lo das al aceptar esta política para crear o usar una cuenta. Puedes retirarlo como se indica en Tus derechos.",
+            "Los datos no se venden ni se usan para publicidad."
+          ]
+        },
+        {
+          "id": "access",
+          "heading": "Quién puede ver qué",
+          "body": [
+            "Los miembros pueden ver locales, salas, tipos de sala, umbrales de confort, lecturas y analítica de las salas, los datos de su propia cuenta y sus propios reportes de incomodidad. No pueden ver la lista de cuentas, los reportes de otras personas ni las alertas.",
+            "Los administradores además pueden ver:",
+            [
+              "la lista de cuentas con nombre, correo, rol y estado, y pueden desactivar cuentas de miembros;",
+              "todos los reportes de incomodidad, con sus comentarios y el identificador de la cuenta que envió cada uno;",
+              "las alertas, con quién las atendió y la acción correctiva;",
+              "dispositivos, gateways y credenciales de máquina."
+            ],
+            "Los gateways locales usan credenciales de máquina limitadas a permisos específicos. El equipo SenseWork opera el servicio y por eso tiene acceso técnico a los datos guardados."
+          ]
+        },
+        {
+          "id": "third-parties",
+          "heading": "Terceros y alojamiento",
+          "body": [
+            [
+              "Microsoft Azure (Azure Container Apps, región North Central US, Estados Unidos) ejecuta el servicio Cloud, que guarda sus datos en una base de datos PostgreSQL.",
+              "Vercel aloja la aplicación web. Las solicitudes de la aplicación web al servicio Cloud pasan por Vercel.",
+              "GitHub Pages aloja la página de presentación, y GitHub publica el código fuente y el instalador de Android.",
+              "La página de presentación carga tipografías de Google Fonts y muestra un video de YouTube.",
+              "Firebase App Distribution (Google) recibe el correo de las personas invitadas a probar la aplicación para enviarles la app de Android.",
+              "OpenWeather entrega el clima exterior de Lima. No se le envían datos personales.",
+              "En simulación, el dispositivo prototipo de sala puede enviar mediciones a través de un broker MQTT público (HiveMQ). No incluyen datos de cuentas."
+            ],
+            "Estos proveedores pueden tratar datos técnicos, como direcciones IP, según sus propias políticas. Parte de este tratamiento ocurre fuera del Perú."
+          ]
+        },
+        {
+          "id": "security",
+          "heading": "Medidas de seguridad",
+          "body": [
+            [
+              "El acceso a la aplicación web publicada y al servicio Cloud es por HTTPS.",
+              "Las contraseñas se guardan como hashes BCrypt, nunca en texto plano.",
+              "El inicio de sesión genera un token firmado que vence, por defecto, después de una hora.",
+              "El servicio Cloud comprueba los permisos de cada solicitud protegida según el rol o la credencial de máquina, y rechaza las cuentas desactivadas.",
+              "Los gateways locales se autentican ante el servicio Cloud con credenciales de máquina cuyas claves se guardan allí como hashes."
+            ],
+            "Este es un prototipo académico: el enlace local entre el dispositivo de la sala y su gateway no está cifrado, y ningún sistema es completamente seguro."
+          ]
+        },
+        {
+          "id": "retention",
+          "heading": "Cuánto tiempo se conservan los datos",
+          "body": [
+            "Los datos se conservan mientras el proyecto esté activo. El servicio Cloud no los borra automáticamente. Puedes pedir al administrador del coworking que se eliminen tus datos. Las aplicaciones no tienen una opción para borrar o descargar tus datos por tu cuenta, así que las solicitudes se atienden manualmente."
+          ]
+        },
+        {
+          "id": "rights",
+          "heading": "Tus derechos",
+          "body": [
+            "Según la Ley N.° 29733 tienes estos derechos:",
+            [
+              "acceso: saber qué datos tuyos se tienen y cómo se usan;",
+              "rectificación: corregir o completar datos erróneos o incompletos;",
+              "cancelación: pedir que se eliminen tus datos;",
+              "oposición: oponerte a un tratamiento por un motivo legítimo."
+            ],
+            "También puedes retirar tu consentimiento.",
+            "Para ejercer estos derechos, pídelo al administrador de tu coworking, quien trasladará la solicitud al equipo SenseWork, o usa la página del proyecto en https://github.com/Grupo03-IOT para preguntar cómo contactar al equipo. Esa página es pública: no publiques ahí datos personales. Indica quién eres, el correo de tu cuenta y qué pides. También puedes presentar un reclamo ante la Autoridad Nacional de Protección de Datos Personales del Perú."
+          ]
+        },
+        {
+          "id": "local-storage",
+          "heading": "Cookies y almacenamiento local",
+          "body": [
+            "Las aplicaciones web y móvil no crean cookies propias ni incluyen rastreadores publicitarios o herramientas de analítica.",
+            [
+              "Web, almacenamiento de sesión: tu token de inicio de sesión, correo, nombre, rol y hora de vencimiento. Se elimina al cerrar sesión o al cerrar la pestaña.",
+              "Web, almacenamiento local: el idioma y la frecuencia de actualización de datos que elegiste.",
+              "Móvil: la sesión iniciada se mantiene solo en memoria y se descarta al cerrar sesión o cerrar la aplicación. El idioma que elegiste es la única preferencia que se guarda en el dispositivo."
+            ]
+          ]
+        },
+        {
+          "id": "minors",
+          "heading": "Menores de edad",
+          "body": [
+            "ZenRoom está dirigido a personas adultas. Las aplicaciones no piden ni verifican la edad. Si un padre, madre o apoderado cree que un menor creó una cuenta, puede pedir al administrador del coworking que se eliminen sus datos."
+          ]
+        },
+        {
+          "id": "changes",
+          "heading": "Cambios en esta política",
+          "body": [
+            "Esta política puede actualizarse a medida que avance el proyecto. La versión vigente es la publicada en las aplicaciones."
+          ]
+        },
+        {
+          "id": "effective",
+          "heading": "Fecha de vigencia",
+          "body": [
+            "Esta política se aplica desde noviembre de 2026."
+          ]
+        }
+      ]
+    }
+  }
+}

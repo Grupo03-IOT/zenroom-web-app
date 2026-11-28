@@ -93,7 +93,7 @@ export function Alerts() {
         : !shown.length ? <Empty data-testid="alerts-empty" title={status === 'OPEN' ? 'No open alerts' : status === 'ACKNOWLEDGED' ? 'No acknowledged alerts' : 'No closed alerts'} detail={hasFilters ? 'No alerts match these filters.' : status === 'OPEN' ? 'An alert opens when a value stays above its threshold for the sustained time.' : 'Alerts appear here when they change state.'}/>
         : <Card className="table-card" data-testid="alerts-table"><div className="table-scroll"><table>
           <caption className="sr-only">{tr(tabs.find(tab => tab.status === status)!.label)}</caption>
-          <thead><tr><th scope="col">{tr('Room')}</th><th scope="col">{tr('Rule')}</th><th scope="col">{tr('Severity')}</th><th scope="col">{tr('Value')}</th><th scope="col">{tr('Opened')}</th><th scope="col">{tr('Status')}</th><th scope="col">{tr('Corrective action')}</th><th scope="col">{tr('Action')}</th></tr></thead>
+          <thead><tr><th scope="col">{tr('Room')}</th><th scope="col">{tr('Rule')}</th><th scope="col">{tr('Severity')}</th><th scope="col">{tr('Value')}</th><th scope="col">{tr('Opened')}</th><th scope="col">{tr('Status')}</th><th scope="col">{tr('Corrective action')}</th><th scope="col">{tr('Acknowledged by')}</th><th scope="col">{tr('Action')}</th></tr></thead>
           <tbody>{shown.map(alert => <tr key={alert.id} data-testid="alert-row">
             <td><strong>{alertRoomName(alert, rooms)}</strong></td>
             <td>{ruleLabel(alert.rule)}</td>
@@ -104,6 +104,7 @@ export function Alerts() {
               {alert.status === 'ACKNOWLEDGED' && <small className="cell-note">{dateTime(alert.acknowledgedAt, language)}</small>}
               {alert.status === 'CLOSED' && <small className="cell-note">{dateTime(alert.closedAt, language)} · {tr(alert.closedBy === 'MANUAL' ? 'closed manually' : 'closed automatically')}</small>}</td>
             <td className="wrap-cell">{alert.correctiveAction || <span className="muted">—</span>}</td>
+            <td data-testid="alert-acknowledged-by">{alert.acknowledgedByName || <span className="muted">—</span>}</td>
             <td>{alert.status === 'OPEN' ? <button type="button" className="button primary small" onClick={() => setAcknowledging(alert)} aria-label={`${tr('Acknowledge')} · ${alertRoomName(alert, rooms)} · ${ruleLabel(alert.rule)}`} data-testid="alert-acknowledge">{tr('Acknowledge')}</button> : <span className="muted">—</span>}</td>
           </tr>)}</tbody>
         </table></div></Card>}

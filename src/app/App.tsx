@@ -16,8 +16,10 @@ import { Alerts } from './screens/AlertsScreen';
 import { Insights } from './screens/InsightsScreen';
 import { MemberRooms, MemberProfile } from './screens/MemberScreens';
 import { MemberReport } from './screens/DiscomfortScreens';
-import { useLanguage, tr } from '../shared/i18n/i18n';
-import { canVisit, defaultPage, pathForPage, readRoute, safeNext } from './routing';
+import { Legal, PublicLegalPage } from './screens/LegalScreen';
+import type { LegalKind } from '../shared/legal/legalDocuments';
+import { useLanguage } from '../shared/i18n/i18n';
+import { canVisit, defaultPage, legalPage, pathForPage, readRoute, safeNext } from './routing';
 import type { AuthMode } from './routing';
 export type Page = 'overview' | 'rooms' | 'room-detail' | 'devices' | 'alerts' | 'insights' | 'reports' | 'members' | 'thresholds' | 'edge-credentials' | 'room-types' | 'diagnostics' | 'member-rooms' | 'member-detail' | 'member-report' | 'profile' | 'terms' | 'privacy';
 interface AppState {
@@ -73,6 +75,8 @@ export default function App() {
         return saved && route.page && canVisit(route.page, saved.role) ? route.page : defaultPage(saved?.role ?? 'ADMIN');
     });
     const [authMode, setAuthMode] = useState<AuthMode>(() => readRoute().authMode ?? 'login');
+    // Terms and Privacy are also readable without a session.
+    const [publicPage, setPublicPage] = useState(() => legalPage(readRoute().page));
     const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>(() => readRoute().roomId);
     const [sites, setSites] = useState<Site[]>([]);
     const [selectedSiteId, setSelectedSiteId] = useState<string>('');
@@ -85,6 +89,8 @@ export default function App() {
     // Alertas reconocidas: siguen activas hasta que la Edge las cierra, así que también cuentan para el semáforo.
     const [allAckAlerts, setAckAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(false);
+    // Tras la primera carga, los refrescos son silenciosos: se actualiza lo mostrado sin barra de carga.
+    const hasData = useRef(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const activeToken = useRef(session?.token);
@@ -102,6 +108,7 @@ export default function App() {
         const requested = safeNext();
         const destination = `/${next}${requested ? `?next=${encodeURIComponent(pathForPage(requested.page, requested.roomId))}` : ''}`;
         window.history.pushState(null, '', destination);
+        setPublicPage(undefined);
         setAuthMode(next);
         window.scrollTo(0, 0);
     };
@@ -109,6 +116,9 @@ export default function App() {
         const syncRoute = () => {
             const route = readRoute();
             if (!session) {
+                const legal = legalPage(route.page);
+                setPublicPage(legal);
+                if (legal) return;
                 if (route.authMode) { setAuthMode(route.authMode); return; }
                 const next = route.page ? `?next=${encodeURIComponent(pathForPage(route.page, route.roomId))}` : '';
                 window.history.replaceState(null, '', `/login${next}`);
@@ -140,6 +150,7 @@ export default function App() {
         sessionStorage.removeItem('sensework-session');
         activeToken.current = undefined;
         window.history.pushState(null, '', '/login');
+        setPublicPage(undefined);
         setAuthMode('login');
         setSession(null);
         setRooms([]);
@@ -152,6 +163,7 @@ export default function App() {
         setAckAlerts([]);
         setSelectedSiteId('');
         setSelectedRoomId(undefined);
+        hasData.current = false;
         setLoading(false);
         setError('');
         setNotice('');
@@ -172,8 +184,10 @@ export default function App() {
     const refresh = useCallback(async () => {
         if (!session)
             return;
-        setLoading(true);
-        setError('');
+        if (!hasData.current) {
+            setLoading(true);
+            setError('');
+        }
         try {
             const results = await Promise.allSettled([
                 monitoringApi.sites(session.token),
@@ -187,11 +201,15 @@ export default function App() {
                 setSites(nextSites.value);
                 setSelectedSiteId(id => nextSites.value.some(site => site.id === id) ? id : nextSites.value[0]?.id || '');
             }
-            if (nextRooms.status === 'fulfilled') setRooms(nextRooms.value);
+            if (nextRooms.status === 'fulfilled') {
+                setRooms(nextRooms.value);
+                hasData.current = true;
+            }
             if (nextDevices.status === 'fulfilled') setDevices(nextDevices.value);
             if (nextGateways.status === 'fulfilled') setGateways(nextGateways.value);
             const failed = results.find(result => result.status === 'rejected');
             if (failed?.status === 'rejected') throw failed.reason;
+            setError('');
         }
         catch (cause) {
             if (activeToken.current === session.token) setError(cause instanceof Error ? cause.message : 'Could not load data');
@@ -274,16 +292,23 @@ export default function App() {
         await signUp(email, password, name);
         await login(email, password);
     }
+    const openPublicPage = (next: LegalKind) => {
+        window.history.pushState(null, '', pathForPage(next));
+        setPublicPage(next);
+        window.scrollTo(0, 0);
+    };
     const context = useMemo<AppState | null>(() => session ? ({
         session, page, navigate, selectedRoom, openRoom, sites, selectedSite, selectSite: setSelectedSiteId, refreshMs, setRefreshMs,
         rooms, devices, gateways, statusFor, alertFor, roomTypes, loading, error, notice, notify, refresh,
         setRooms, setRoomTypes, setSites, signOut, openAlerts, refreshAlerts,
     }) : null, [session, page, selectedRoomId, selectedRoom, sites, selectedSite, rooms, devices, gateways, thresholdsByType, roomTypes, loading, error, notice, refresh, refreshMs, setRefreshMs, allOpenAlerts, refreshAlerts]);
+    if (!session && publicPage)
+        return <PublicLegalPage kind={publicPage} onOpen={openPublicPage} onBack={() => navigateAuth('login')}/>;
     if (!session)
         return <AuthScreen notice={authNotice} mode={authMode} onModeChange={navigateAuth} onLogin={login} onRegister={register}/>;
-    return <Context.Provider value={context}><Shell>{renderPage(page)}</Shell></Context.Provider>;
+    return <Context.Provider value={context}><Shell>{renderPage(page, navigate)}</Shell></Context.Provider>;
 }
-function renderPage(page: Page): ReactNode {
+function renderPage(page: Page, navigate: AppState['navigate']): ReactNode {
     switch (page) {
         case 'overview': return <Overview />;
         case 'rooms': return <AdminRooms />;
@@ -301,10 +326,7 @@ function renderPage(page: Page): ReactNode {
         case 'member-detail': return <RoomDetail member/>;
         case 'member-report': return <MemberReport />;
         case 'profile': return <MemberProfile />;
-        case 'terms': return <Legal title="Terms of Service"/>;
-        case 'privacy': return <Legal title="Privacy Policy"/>;
+        case 'terms':
+        case 'privacy': return <Legal kind={page} onOpen={navigate}/>;
     }
 }
-function Legal({ title }: {
-    title: string;
-}) { return <section className="card legal"><h1>{tr(title)}</h1><p>{tr('The complete')} {tr(title).toLowerCase()} {tr('must be supplied by the SenseWork team before publication.')}</p></section>; }

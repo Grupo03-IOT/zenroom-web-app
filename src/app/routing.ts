@@ -20,6 +20,10 @@ export function defaultPage(role: Role): Page {
   return role === 'MEMBER' ? 'member-rooms' : 'overview'
 }
 
+export function legalPage(page?: Page): 'terms' | 'privacy' | undefined {
+  return page === 'terms' || page === 'privacy' ? page : undefined
+}
+
 export function canVisit(page: Page, role: Role): boolean {
   return role === 'ADMIN' ? !memberOnly.has(page) : !adminOnly.has(page)
 }
