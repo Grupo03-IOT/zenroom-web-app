@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Session, Role } from '../contexts/identity/domain/session';
-import { signIn, signUp } from '../contexts/identity/infrastructure/identityApi';
+import { signIn, signUp, signUpAdmin } from '../contexts/identity/infrastructure/identityApi';
 import { roomStatus } from '../contexts/monitoring/domain/models';
 import type { Device, Gateway, Room, RoomStatus, RoomType, Site } from '../contexts/monitoring/domain/models';
 import { monitoringApi } from '../contexts/monitoring/infrastructure/monitoringApi';
@@ -286,10 +286,10 @@ export default function App() {
         enterSession(await signIn(email, password));
     }
     async function register(email: string, password: string, name: string, role: Role) {
-
         if (role === 'ADMIN')
-            throw new Error('Cloud API currently creates member accounts only. An existing administrator must grant the administrator role.');
-        await signUp(email, password, name);
+            await signUpAdmin(email, password, name);
+        else
+            await signUp(email, password, name);
         await login(email, password);
     }
     const openPublicPage = (next: LegalKind) => {

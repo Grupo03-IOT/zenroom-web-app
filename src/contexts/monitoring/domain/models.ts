@@ -27,6 +27,11 @@ export function hasRecentReading(room: Room): boolean {
   const age = room.latest ? Date.now() - Date.parse(room.latest.ts) : NaN
   return Number.isFinite(age) && age >= -60000 && age <= 5 * 60000
 }
+/** Personas en la sala: capacity (1 si no está fijada) con el último dato vigente ocupado, 0 si libre, null si el dato no es vigente. */
+export function occupancyPeople(room: Room): number | null {
+  if (!room.latest || !hasRecentReading(room) || room.latest.occupiedPct == null) return null
+  return room.latest.occupiedPct > 50 ? (room.capacity ?? 1) : 0
+}
 type RoomThreshold = { metric: string; warnValue: number; criticalValue: number | null; enabled: boolean }
 // Una alerta abierta fija un piso: critical -> bad; info/warning -> moderate.
 export type AlertFloor = { severity: string } | null | undefined

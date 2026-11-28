@@ -50,7 +50,6 @@ export function AuthScreen({ notice, mode, onModeChange, onLogin, onRegister }: 
   }
 
   const adminSignup = signup && registrationRole === 'ADMIN'
-  const registrationBlocked = adminSignup
 
   return <div className="auth-page">
     <div className="auth-grid" aria-hidden="true" />
@@ -66,7 +65,7 @@ export function AuthScreen({ notice, mode, onModeChange, onLogin, onRegister }: 
         <div className="auth-logo"><img src={brandIcon} alt=""/><strong>Sense<span>Work</span></strong></div>
         <div className="auth-intro">
           <h1>{tr(signup ? 'Create your account' : 'Welcome back')}</h1>
-          <p>{tr(signup ? (adminSignup ? 'Administrator access requires an existing administrator.' : 'Discover the comfort of every room before choosing one.') : 'Your spaces and comfort data are waiting for you.')}</p>
+          <p>{tr(signup ? (adminSignup ? 'Create an administrator account to manage your coworking space.' : 'Discover the comfort of every room before choosing one.') : 'Your spaces and comfort data are waiting for you.')}</p>
         </div>
 
         {signup && <div className="auth-name-fields">
@@ -83,11 +82,11 @@ export function AuthScreen({ notice, mode, onModeChange, onLogin, onRegister }: 
             <span className="auth-role-copy"><strong>{tr('I manage a coworking space')}</strong><small>{tr('Monitor rooms, devices and alerts as an administrator.')}</small></span>
             <span className="auth-role-track"><i /></span>
           </button>
-          {registrationBlocked && <div className="auth-role-note" role="status">{tr('Cloud API currently creates member accounts only. An existing administrator must grant the administrator role.')}</div>}
+          <div className="auth-role-note" role="status">{tr(adminSignup ? 'You are creating an administrator account. You will register your coworking space and rooms after signing in.' : 'You are creating a member account.')}</div>
         </>}
 
         {(error || (notice && !signup)) && <div className="auth-error" role="alert">{tr(error || notice || '')}</div>}
-        <button className="auth-submit" disabled={busy || registrationBlocked}>{tr(busy ? 'Please wait…' : signup ? 'Create account' : 'Sign in')}<ArrowRight /></button>
+        <button className="auth-submit" disabled={busy}>{tr(busy ? 'Please wait…' : signup ? 'Create account' : 'Sign in')}<ArrowRight /></button>
 
         <div className="auth-switch">{tr(signup ? 'Already have an account?' : 'New to SenseWork?')} <button type="button" onClick={() => switchMode(!signup)}>{tr(signup ? 'Sign in' : 'Sign up')}</button></div>
         {/* New tab, so that what was typed in the form is kept. */}
@@ -97,13 +96,13 @@ export function AuthScreen({ notice, mode, onModeChange, onLogin, onRegister }: 
       {!adminSignup && <aside className="auth-business-card">
         <div className="auth-business-eyebrow">SENSEWORK · {tr('FOR WORKSPACES')}</div>
         <h2>{tr('Manage a coworking space?')}<br />{tr('Understand every room in real time.')}</h2>
-        <p>{tr('Cloud API creates member accounts. An existing administrator grants access to manage spaces and alerts.')}</p>
+        <p>{tr('Create an administrator account to manage spaces, rooms, devices and alerts.')}</p>
         <ul>
           <li><span><Radio /></span>{tr('Live room readings')}</li>
           <li><span><Users /></span>{tr('Occupancy and comfort trends')}</li>
           <li><span><BellRing /></span>{tr('Alerts and corrective actions')}</li>
         </ul>
-        <button type="button" className="auth-business-link" onClick={() => switchMode(true, 'ADMIN')}>{tr('View administrator access')}<ArrowRight /></button>
+        <button type="button" className="auth-business-link" onClick={() => switchMode(true, 'ADMIN')}>{tr('Create administrator account')}<ArrowRight /></button>
         <div className="auth-business-foot"><Check />{tr('Built for connected spaces')}</div>
       </aside>}
     </main>
